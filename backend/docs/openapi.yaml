@@ -1,0 +1,10 @@
+openapi: 3.0.3
+info:
+  title: Alertas Preditivos de Rede — API
+  description: >
+    API REST do sistema de alertas preditivos de rede.
+    Permite ao agente de IA criar e enriquecer alertas, e ao frontend
+    consultar, filtrar, atualizar e arquivar alertas.
+  version: 1.0.0
+
+# TODO (Fase 3b): descrever todos os endpoints, schemas, parâmetros e exemplos

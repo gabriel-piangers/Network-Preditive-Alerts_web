@@ -1,0 +1,27 @@
+{
+  "name": "ell-network-alerts",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "seed": "npm run seed --workspace=backend",
+    "simulate": "npm run simulate --workspace=backend",
+    "test": "npm test --workspace=backend",
+    "lint": "eslint . --ext .js,.jsx",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "eslint": "^9.25.1",
+    "prettier": "^3.5.3"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

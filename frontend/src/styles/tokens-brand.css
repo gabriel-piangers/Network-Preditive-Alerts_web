@@ -1,0 +1,20 @@
+/* Tokens de cores de marca e neutros.
+   Paleta única — interface clara e neutra com primária azul.
+   Para ajustar a paleta, edite apenas os valores abaixo. Nenhum componente
+   deve referenciar cores diretamente; use sempre var(--...). */
+
+:root {
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-contrast: #ffffff;
+
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f1f5f9;
+
+  --color-border: #e2e8f0;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+
+  --color-focus-ring: #93c5fd;
+}

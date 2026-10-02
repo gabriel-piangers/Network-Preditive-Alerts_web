@@ -1,0 +1,40 @@
+/* Tokens sem cor: espaçamento, tipografia, raios de borda e sombras.
+   Esses valores são fixos e não mudam entre paletas de cores. */
+
+:root {
+  /* Espaçamentos (base 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+
+  /* Tipografia */
+  --font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-md: 15px;
+  --font-size-lg: 18px;
+  --font-size-xl: 22px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 600;
+  --line-height-tight: 1.3;
+  --line-height-normal: 1.6;
+
+  /* Raios de borda */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* Sombras */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.12);
+
+  /* Larguras de layout */
+  --max-width-content: 1440px;
+  --min-width-layout: 1024px;
+}

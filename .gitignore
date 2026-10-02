@@ -1,0 +1,20 @@
+# Dependências
+node_modules/
+
+# Variáveis de ambiente (nunca commitar os valores reais)
+.env
+
+# Banco de dados SQLite
+*.db
+*.sqlite
+
+# Logs do agente (criados em runtime)
+backend/logs/
+
+# Builds do frontend
+frontend/dist/
+frontend/.vite/
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db

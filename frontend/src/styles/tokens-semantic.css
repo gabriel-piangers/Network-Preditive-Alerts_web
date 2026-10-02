@@ -1,0 +1,38 @@
+/* Tokens de cores semânticas: risco, situação e feedback.
+   Separados de tokens-brand.css para que ajustar a paleta da marca não
+   afete o significado visual ("alto risco" deve sempre ser vermelho). */
+
+:root {
+  /* Risco */
+  --color-risk-high: #b91c1c;
+  --color-risk-high-bg: #fef2f2;
+
+  --color-risk-medium: #b45309;
+  --color-risk-medium-bg: #fffbeb;
+
+  --color-risk-low: #15803d;
+  --color-risk-low-bg: #f0fdf4;
+
+  /* Situação */
+  --color-status-new: #1d4ed8;
+  --color-status-new-bg: #eff6ff;
+
+  --color-status-in-analysis: #7c3aed;
+  --color-status-in-analysis-bg: #f5f3ff;
+
+  --color-status-monitoring: #0369a1;
+  --color-status-monitoring-bg: #f0f9ff;
+
+  --color-status-resolved: #15803d;
+  --color-status-resolved-bg: #f0fdf4;
+
+  --color-status-false-positive: #6b7280;
+  --color-status-false-positive-bg: #f9fafb;
+
+  --color-status-expired: #92400e;
+  --color-status-expired-bg: #fef3c7;
+
+  /* Feedback */
+  --color-feedback-error: #b91c1c;
+  --color-feedback-error-bg: #fef2f2;
+}
