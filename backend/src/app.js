@@ -8,6 +8,7 @@ import { CORS_ORIGIN } from './config.js';
 import alertsRouter from './routes/alerts.routes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { agentRequestLogger } from './middleware/agentRequestLogger.js';
 
 const app = express();
 
@@ -16,6 +17,9 @@ app.use(cors({ origin: CORS_ORIGIN }));
 
 // Interpreta o corpo das requisições como JSON
 app.use(express.json());
+
+// Registra requisições do agente (as que trazem X-API-Key) em arquivo de log diário
+app.use(agentRequestLogger);
 
 // Rota de verificação de saúde — usada para confirmar que o servidor está no ar
 app.get('/api/health', (_req, res) => {

@@ -9,9 +9,10 @@ import db from '../src/db/connection.js';
 
 const keepExisting = process.argv.includes('--keep');
 
-// Referência de tempo base para calcular datas relativas
-const now = new Date();
-const hoursFromNow = (h) => new Date(now.getTime() + h * 60 * 60 * 1000).toISOString();
+// Referência de tempo fixa na inicialização: garante consistência entre todos os registros
+// do mesmo seed (não usar Date.now() inline para evitar datas ligeiramente diferentes).
+const _seedNow = new Date();
+const hoursFromNow = (h) => new Date(_seedNow.getTime() + h * 3_600_000).toISOString();
 const hoursAgo = (h) => hoursFromNow(-h);
 
 // Alertas realistas com variedade de tipos, riscos, status e áreas
