@@ -5,6 +5,9 @@
 import express from 'express';
 import cors from 'cors';
 import { CORS_ORIGIN } from './config.js';
+import alertsRouter from './routes/alerts.routes.js';
+import { notFound } from './middleware/notFound.js';
+import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
@@ -19,6 +22,13 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-// TODO (Fase 2): registrar rotas de alertas
+// Rotas de alertas sob o prefixo /api/alerts
+app.use('/api/alerts', alertsRouter);
+
+// 404 para rotas não registradas (deve vir após todas as rotas)
+app.use(notFound);
+
+// Tratamento global de erros (deve ser o último middleware)
+app.use(errorHandler);
 
 export default app;
