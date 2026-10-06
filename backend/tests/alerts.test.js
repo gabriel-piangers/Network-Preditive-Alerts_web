@@ -1,4 +1,4 @@
-// Testes da Fase 2: POST (201/401/400) e GET com filtros básicos.
+// Testes completos (Fases 2 e 3b): cobertura de toda a seção 6.11 da SPEC.
 // Usa node:test nativo + supertest. O banco é SQLite em memória (DB_PATH=:memory:).
 // Para rodar: npm test (no workspace backend)
 
@@ -382,6 +382,15 @@ describe('PATCH /api/alerts/:id', () => {
     assert.equal(res.body.error.code, 'VALIDATION_ERROR');
   });
 
+  it('deve retornar 400 para campo proibido "updated_at"', async () => {
+    const res = await request(app)
+      .patch(`/api/alerts/${alertId}`)
+      .send({ updated_at: '2020-01-01T00:00:00.000Z' });
+
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
+  });
+
   it('deve retornar 404 para id inexistente', async () => {
     const res = await request(app)
       .patch('/api/alerts/99999')
@@ -408,13 +417,19 @@ describe('DELETE /api/alerts/:id (soft delete)', () => {
     alertId = result.lastInsertRowid;
   });
 
-  it('deve retornar 204 e o alerta deve sumir da lista', async () => {
+  it('deve retornar 204 e o alerta deve sumir do GET por id e da listagem', async () => {
     const del = await request(app).delete(`/api/alerts/${alertId}`);
     assert.equal(del.status, 204);
 
-    // O alerta não deve aparecer no GET
-    const get = await request(app).get(`/api/alerts/${alertId}`);
-    assert.equal(get.status, 404);
+    // O alerta não deve aparecer no GET por id
+    const getById = await request(app).get(`/api/alerts/${alertId}`);
+    assert.equal(getById.status, 404);
+
+    // O alerta não deve aparecer na listagem geral
+    const list = await request(app).get('/api/alerts');
+    assert.equal(list.status, 200);
+    const ids = list.body.data.map((a) => a.id);
+    assert.ok(!ids.includes(alertId), 'Alerta arquivado não deve aparecer na lista');
 
     // Mas o registro ainda existe no banco com deleted_at preenchido
     const row = db.prepare('SELECT deleted_at FROM alerts WHERE id = ?').get(alertId);
@@ -454,5 +469,178 @@ describe('Expiração automática de alertas', () => {
     // O alerta existe mas foi marcado como expired
     assert.equal(res.status, 200);
     assert.equal(res.body.data.status, 'expired');
+  });
+
+  it('deve marcar como expired via GET /api/alerts (listagem)', async () => {
+    cleanDb();
+    const insert = db.prepare(
+      `INSERT INTO alerts
+         (type, title, area, equipments, risk, accuracy, predicted_for,
+          status, context, causes, actions, confirmed, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const now = new Date().toISOString();
+    // predicted_for há 2 horas atrás — deve ser expirado
+    const expired = new Date(Date.now() - 2 * 3600000).toISOString();
+    const result = insert.run('latency', 'Alerta expirado via lista', 'SP', '[]', 'medium', 75, expired, 'monitoring', '', '[]', '[]', null, now, now);
+    const expiredAlertId = result.lastInsertRowid;
+
+    // GET lista dispara a verificação de expiração
+    const res = await request(app).get('/api/alerts');
+    assert.equal(res.status, 200);
+    const found = res.body.data.find((a) => a.id === expiredAlertId);
+    // O alerta deve aparecer na lista com status expired
+    assert.ok(found, 'Alerta deve aparecer na listagem');
+    assert.equal(found.status, 'expired');
+  });
+
+  it('não deve expirar alertas que ainda estão no futuro (> 30min)', async () => {
+    cleanDb();
+    const insert = db.prepare(
+      `INSERT INTO alerts
+         (type, title, area, equipments, risk, accuracy, predicted_for,
+          status, context, causes, actions, confirmed, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const now = new Date().toISOString();
+    // predicted_for 2 horas no futuro — NÃO deve ser expirado
+    const future = new Date(Date.now() + 2 * 3600000).toISOString();
+    const result = insert.run('congestion', 'Alerta futuro', 'SP', '[]', 'low', 70, future, 'new', '', '[]', '[]', null, now, now);
+    const futureAlertId = result.lastInsertRowid;
+
+    const res = await request(app).get(`/api/alerts/${futureAlertId}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.data.status, 'new');
+  });
+});
+
+describe('GET /api/alerts — filtros adicionais', () => {
+  before(() => {
+    cleanDb();
+    const insert = db.prepare(
+      `INSERT INTO alerts
+         (type, title, area, equipments, risk, accuracy, predicted_for,
+          status, context, causes, actions, confirmed, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const now = new Date().toISOString();
+    const future = new Date(Date.now() + 5 * 3600000).toISOString();
+
+    insert.run('congestion', 'Congestionamento SP', 'São Paulo - Zona Leste', '[]', 'high', 90, future, 'new', '', '[]', '[]', null, now, now);
+    insert.run('latency', 'Latência Campinas', 'Campinas', '[]', 'medium', 80, future, 'new', '', '[]', '[]', null, now, now);
+    insert.run('equipment_failure', 'Falha Guarulhos', 'Guarulhos', '[]', 'low', 70, future, 'in_analysis', '', '[]', '[]', null, now, now);
+  });
+
+  after(cleanDb);
+
+  it('deve filtrar por type', async () => {
+    const res = await request(app).get('/api/alerts?type=congestion');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.meta.total, 1);
+    assert.equal(res.body.data[0].type, 'congestion');
+  });
+
+  it('deve filtrar por area', async () => {
+    const res = await request(app).get('/api/alerts?area=Campinas');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.meta.total, 1);
+    assert.equal(res.body.data[0].area, 'Campinas');
+  });
+
+  it('deve filtrar por type CSV', async () => {
+    const res = await request(app).get('/api/alerts?type=congestion,latency');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.meta.total, 2);
+    const types = res.body.data.map((a) => a.type);
+    assert.ok(types.every((t) => ['congestion', 'latency'].includes(t)));
+  });
+
+  it('deve retornar 400 para type inválido', async () => {
+    const res = await request(app).get('/api/alerts?type=invalido');
+
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error.code, 'VALIDATION_ERROR');
+  });
+});
+
+describe('GET /api/alerts/summary — by_status completo', () => {
+  before(() => {
+    cleanDb();
+    const insert = db.prepare(
+      `INSERT INTO alerts
+         (type, title, area, equipments, risk, accuracy, predicted_for,
+          status, context, causes, actions, confirmed, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const now = new Date().toISOString();
+    const future = new Date(Date.now() + 5 * 3600000).toISOString();
+
+    // Apenas 2 status representados: new e resolved
+    insert.run('congestion', 'A1', 'SP', '[]', 'high', 90, future, 'new', '', '[]', '[]', null, now, now);
+    insert.run('latency', 'A2', 'Campinas', '[]', 'medium', 75, future, 'resolved', '', '[]', '[]', null, now, now);
+  });
+
+  after(cleanDb);
+
+  it('deve incluir todas as chaves de status em by_status, inclusive com valor 0', async () => {
+    const res = await request(app).get('/api/alerts/summary');
+
+    assert.equal(res.status, 200);
+    const { by_status } = res.body.data;
+    // Deve ter todas as 6 chaves de status
+    for (const key of ['new', 'in_analysis', 'monitoring', 'resolved', 'false_positive', 'expired']) {
+      assert.ok(key in by_status, `by_status deve ter a chave "${key}"`);
+    }
+    assert.equal(by_status.new, 1);
+    assert.equal(by_status.in_analysis, 0);
+    assert.equal(by_status.monitoring, 0);
+    assert.equal(by_status.resolved, 1);
+    assert.equal(by_status.false_positive, 0);
+    assert.equal(by_status.expired, 0);
+  });
+
+  it('alertas arquivados (soft-deleted) não devem aparecer em by_status nem em areas', async () => {
+    // Insere e arquiva um alerta
+    const insert = db.prepare(
+      `INSERT INTO alerts
+         (type, title, area, equipments, risk, accuracy, predicted_for,
+          status, context, causes, actions, confirmed, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    const now = new Date().toISOString();
+    const future = new Date(Date.now() + 5 * 3600000).toISOString();
+    const { lastInsertRowid } = insert.run('other', 'Arquivado', 'Zona Nova', '[]', 'low', 70, future, 'resolved', '', '[]', '[]', null, now, now);
+
+    // Arquiva via DELETE
+    await request(app).delete(`/api/alerts/${lastInsertRowid}`);
+
+    const res = await request(app).get('/api/alerts/summary');
+    assert.equal(res.status, 200);
+
+    // O total não deve incluir o arquivado
+    const { areas } = res.body.data;
+    assert.ok(!areas.includes('Zona Nova'), 'Área de alerta arquivado não deve aparecer em areas');
+  });
+});
+
+describe('GET /api/health', () => {
+  it('deve retornar 200 com { status: "ok" }', async () => {
+    const res = await request(app).get('/api/health');
+
+    assert.equal(res.status, 200);
+    assert.equal(res.body.status, 'ok');
+  });
+});
+
+describe('Erros 500 não vazam stack trace', () => {
+  it('rotas inexistentes retornam 404 com formato padronizado', async () => {
+    const res = await request(app).get('/api/rota-inexistente');
+
+    assert.equal(res.status, 404);
+    assert.equal(res.body.error.code, 'NOT_FOUND');
+    assert.ok(!res.body.error.stack, 'Stack trace não deve aparecer na resposta');
   });
 });

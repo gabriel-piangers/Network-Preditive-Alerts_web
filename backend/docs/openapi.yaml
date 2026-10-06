@@ -5,6 +5,956 @@ info:
     API REST do sistema de alertas preditivos de rede.
     Permite ao agente de IA criar e enriquecer alertas, e ao frontend
     consultar, filtrar, atualizar e arquivar alertas.
-  version: 1.0.0
 
-# TODO (Fase 3b): descrever todos os endpoints, schemas, parâmetros e exemplos
+    ## Autenticação
+
+    O endpoint `POST /api/alerts` exige o header `X-API-Key` com a chave configurada
+    em `AGENT_API_KEY` (padrão: `dev-agent-key-change-me`).
+    Os demais endpoints (`PATCH`, `DELETE`, leitura) não exigem autenticação —
+    essa é uma limitação conhecida do MVP (sem autenticação de usuários).
+
+    O agente pode também enviar `X-API-Key` no `PATCH`, o que o identifica nos logs diários.
+  version: 1.0.0
+  contact:
+    name: Equipe Alertas Preditivos de Rede
+
+servers:
+  - url: http://localhost:3001
+    description: Desenvolvimento local
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: >
+        Chave de autenticação do agente. Obrigatória apenas no `POST /api/alerts`.
+        Configure via variável de ambiente `AGENT_API_KEY`.
+
+  schemas:
+    Action:
+      type: object
+      required:
+        - text
+        - done
+      additionalProperties: false
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Descrição da ação/verificação recomendada.
+          example: Verificar utilização de banda na interface Gi0/1
+        done:
+          type: boolean
+          description: Se o analista marcou essa ação como concluída.
+          example: false
+
+    Alert:
+      type: object
+      description: Representação completa de um alerta preditivo de rede.
+      properties:
+        id:
+          type: integer
+          description: Identificador sequencial gerado pelo servidor.
+          example: 17
+        type:
+          type: string
+          enum:
+            - bandwidth_exceeded
+            - congestion
+            - equipment_failure
+            - packet_loss
+            - latency
+            - other
+          description: |
+            Tipo do alerta:
+            - `bandwidth_exceeded` — Banda excedida
+            - `congestion` — Congestionamento
+            - `equipment_failure` — Falha de equipamento
+            - `packet_loss` — Perda de pacotes
+            - `latency` — Latência elevada
+            - `other` — Outro
+          example: bandwidth_exceeded
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Título curto do alerta.
+          example: Saturação prevista no link do backbone Zona Leste
+        area:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: Área geográfica ou lógica afetada.
+          example: São Paulo - Zona Leste
+        equipments:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+          description: Identificadores dos equipamentos afetados.
+          example:
+            - RTR-SP-ZL-01
+            - SW-SP-ZL-04
+        risk:
+          type: string
+          enum:
+            - high
+            - medium
+            - low
+          description: |
+            Nível de risco:
+            - `high` — Alto (peso 3)
+            - `medium` — Médio (peso 2)
+            - `low` — Baixo (peso 1)
+          example: high
+        accuracy:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Certeza do modelo preditivo em porcentagem (0–100).
+          example: 87
+        predicted_for:
+          type: string
+          format: date-time
+          description: Data/hora prevista para a ocorrência do problema (ISO 8601, UTC).
+          example: "2026-10-03T02:30:00.000Z"
+        status:
+          type: string
+          enum:
+            - new
+            - in_analysis
+            - monitoring
+            - resolved
+            - false_positive
+            - expired
+          description: |
+            Situação do alerta:
+            - `new` — Novo (acabou de chegar)
+            - `in_analysis` — Em análise
+            - `monitoring` — Monitorando
+            - `resolved` — Resolvido
+            - `false_positive` — Falso positivo
+            - `expired` — Expirado (atribuído automaticamente pelo backend)
+
+            **Alertas ativos** = `new`, `in_analysis`, `monitoring`.
+          example: new
+        context:
+          type: string
+          maxLength: 10000
+          description: Contextualização gerada pelo agente (texto simples; quebras de linha preservadas).
+          example: "O tráfego no link principal vem crescendo de forma contínua há 5 dias e deve ultrapassar 95% da capacidade nas próximas horas.\nO mesmo padrão foi visto em 12/09 antes de uma queda de serviço."
+        causes:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+          description: Causas prováveis identificadas pelo agente.
+          example:
+            - Aumento sazonal de tráfego de streaming
+            - Rota alternativa desativada para manutenção
+        actions:
+          type: array
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/Action'
+          description: >
+            Ações/verificações recomendadas, formam o checklist do analista.
+            Ao fazer PATCH com `actions`, o array é **substituído integralmente**;
+            leia o alerta antes para não apagar marcações (`done`) do analista.
+          example:
+            - text: Verificar utilização de banda na interface Gi0/1
+              done: false
+            - text: Avaliar redirecionamento parcial do tráfego para a rota alternativa
+              done: false
+        confirmed:
+          type: boolean
+          nullable: true
+          description: >
+            A previsão se confirmou?
+            `null` = ainda não avaliado; `true` = ocorreu; `false` = não ocorreu.
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          description: Data/hora de criação (gerada pelo servidor).
+          example: "2026-10-02T14:03:11.123Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Data/hora da última alteração (atualizada a cada PATCH).
+          example: "2026-10-02T14:03:11.123Z"
+
+    AlertInput:
+      type: object
+      required:
+        - type
+        - title
+        - area
+        - equipments
+        - risk
+        - accuracy
+        - predicted_for
+        - context
+        - causes
+        - actions
+      additionalProperties: false
+      description: Corpo da requisição para criar um alerta (POST).
+      properties:
+        type:
+          type: string
+          enum:
+            - bandwidth_exceeded
+            - congestion
+            - equipment_failure
+            - packet_loss
+            - latency
+            - other
+          example: congestion
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: Congestionamento previsto no switch de agregação
+        area:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: Campinas
+        equipments:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+          example:
+            - SW-CAMP-07
+        risk:
+          type: string
+          enum:
+            - high
+            - medium
+            - low
+          example: medium
+        accuracy:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 78
+        predicted_for:
+          type: string
+          format: date-time
+          example: "2026-10-03T18:00:00.000Z"
+        context:
+          type: string
+          maxLength: 10000
+          example: Aumento contínuo de pacotes nas últimas 48h.
+        causes:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+          example:
+            - Crescimento de tráfego no horário de pico
+        actions:
+          type: array
+          maxItems: 30
+          description: >
+            Cada item pode ser uma string (convertida para `{ text, done: false }`)
+            ou um objeto `{ text, done }` completo.
+          items:
+            oneOf:
+              - type: string
+                minLength: 1
+                maxLength: 500
+              - $ref: '#/components/schemas/Action'
+          example:
+            - Verificar filas de saída da interface Gi0/2
+        status:
+          type: string
+          enum:
+            - new
+            - in_analysis
+            - monitoring
+            - resolved
+            - false_positive
+            - expired
+          description: Opcional. Padrão `new`.
+          example: new
+        confirmed:
+          type: boolean
+          nullable: true
+          description: Opcional. Padrão `null`.
+          example: null
+
+    AlertPatch:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      description: >
+        Corpo da requisição para atualização parcial (PATCH).
+        Pelo menos um campo deve ser enviado. Campos `id`, `created_at` e `updated_at` são proibidos.
+        Ao enviar `actions`, envie o array completo com objetos `{ text, done }`.
+      properties:
+        type:
+          type: string
+          enum:
+            - bandwidth_exceeded
+            - congestion
+            - equipment_failure
+            - packet_loss
+            - latency
+            - other
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        area:
+          type: string
+          minLength: 1
+          maxLength: 120
+        equipments:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+        risk:
+          type: string
+          enum:
+            - high
+            - medium
+            - low
+        accuracy:
+          type: number
+          minimum: 0
+          maximum: 100
+        predicted_for:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+            - new
+            - in_analysis
+            - monitoring
+            - resolved
+            - false_positive
+            - expired
+        context:
+          type: string
+          maxLength: 10000
+        causes:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+        actions:
+          type: array
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/Action'
+        confirmed:
+          type: boolean
+          nullable: true
+
+    AlertListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alert'
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+              example: 1
+            page_size:
+              type: integer
+              example: 20
+            total:
+              type: integer
+              example: 42
+            total_pages:
+              type: integer
+              example: 3
+
+    AlertSummaryResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            total_active:
+              type: integer
+              description: Total de alertas ativos (new + in_analysis + monitoring).
+              example: 12
+            new_count:
+              type: integer
+              description: Alertas com status `new`.
+              example: 4
+            by_risk:
+              type: object
+              description: Contagem de alertas ativos por nível de risco.
+              properties:
+                high:
+                  type: integer
+                  example: 3
+                medium:
+                  type: integer
+                  example: 5
+                low:
+                  type: integer
+                  example: 4
+            by_status:
+              type: object
+              description: Contagem de todos os alertas não arquivados por status (inclui chaves com valor 0).
+              properties:
+                new:
+                  type: integer
+                  example: 4
+                in_analysis:
+                  type: integer
+                  example: 2
+                monitoring:
+                  type: integer
+                  example: 6
+                resolved:
+                  type: integer
+                  example: 8
+                false_positive:
+                  type: integer
+                  example: 1
+                expired:
+                  type: integer
+                  example: 2
+            areas:
+              type: array
+              items:
+                type: string
+              description: Áreas distintas dos alertas não arquivados, em ordem alfabética.
+              example:
+                - Campinas
+                - São Paulo - Zona Leste
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              enum:
+                - VALIDATION_ERROR
+                - INVALID_JSON
+                - UNAUTHORIZED
+                - NOT_FOUND
+                - INTERNAL_ERROR
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Dados inválidos.
+            details:
+              type: array
+              nullable: true
+              description: Presente apenas quando code = VALIDATION_ERROR.
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                    example: risk
+                  message:
+                    type: string
+                    example: Valor deve ser high, medium ou low.
+
+paths:
+  /api/health:
+    get:
+      summary: Verificação de saúde do servidor
+      description: Confirma que o servidor está no ar. Não exige autenticação.
+      operationId: getHealth
+      tags:
+        - Utilitários
+      responses:
+        "200":
+          description: Servidor em funcionamento.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+              example:
+                status: ok
+
+  /api/alerts:
+    get:
+      summary: Lista alertas com filtros, ordenação e paginação
+      description: >
+        Retorna a lista de alertas não arquivados (sem `deleted_at`).
+        Aplica automaticamente a lógica de expiração: alertas ativos com `predicted_for`
+        há mais de 30 minutos no passado são marcados como `expired` antes da resposta.
+
+        **Ordenação padrão** (sem `sort`): risco decrescente (`high` → `medium` → `low`)
+        e, em seguida, `predicted_for` crescente.
+      operationId: listAlerts
+      tags:
+        - Alertas
+      parameters:
+        - name: status
+          in: query
+          description: "Filtra por status. CSV permitido (ex.: `new,in_analysis`)."
+          schema:
+            type: string
+          example: new,in_analysis
+        - name: risk
+          in: query
+          description: "Filtra por risco. CSV permitido (ex.: `high,medium`)."
+          schema:
+            type: string
+          example: high
+        - name: type
+          in: query
+          description: "Filtra por tipo. CSV permitido (ex.: `congestion,latency`)."
+          schema:
+            type: string
+          example: congestion
+        - name: area
+          in: query
+          description: Filtra por área (igualdade exata). CSV permitido.
+          schema:
+            type: string
+          example: "São Paulo - Zona Leste"
+        - name: min_accuracy
+          in: query
+          description: Retorna apenas alertas com `accuracy >= min_accuracy`.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100
+          example: 70
+        - name: sort
+          in: query
+          description: Campo de ordenação.
+          schema:
+            type: string
+            enum:
+              - risk
+              - predicted_for
+              - accuracy
+              - status
+              - title
+              - area
+              - created_at
+              - updated_at
+          example: accuracy
+        - name: order
+          in: query
+          description: Direção da ordenação. Padrão depende do campo (`desc` para risk/accuracy/created_at/updated_at, `asc` para os demais).
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+          example: desc
+        - name: page
+          in: query
+          description: Número da página (começa em 1).
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: page_size
+          in: query
+          description: Quantidade de alertas por página (1–100).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+      responses:
+        "200":
+          description: Lista de alertas com metadados de paginação.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertListResponse'
+              example:
+                data:
+                  - id: 17
+                    type: bandwidth_exceeded
+                    title: Saturação prevista no link do backbone Zona Leste
+                    area: São Paulo - Zona Leste
+                    equipments:
+                      - RTR-SP-ZL-01
+                      - SW-SP-ZL-04
+                    risk: high
+                    accuracy: 87
+                    predicted_for: "2026-10-03T02:30:00.000Z"
+                    status: new
+                    context: O tráfego no link principal vem crescendo de forma contínua há 5 dias.
+                    causes:
+                      - Aumento sazonal de tráfego de streaming
+                    actions:
+                      - text: Verificar utilização de banda na interface Gi0/1
+                        done: false
+                    confirmed: null
+                    created_at: "2026-10-02T14:03:11.123Z"
+                    updated_at: "2026-10-02T14:03:11.123Z"
+                meta:
+                  page: 1
+                  page_size: 20
+                  total: 42
+                  total_pages: 3
+        "400":
+          description: "Parâmetro de query inválido (ex.: status ou risk desconhecido)."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Dados inválidos.
+                  details:
+                    - field: risk
+                      message: Valor inválido
+
+    post:
+      summary: Cria um novo alerta
+      description: >
+        Cria um alerta preditivo. Exige o header `X-API-Key` com a chave do agente.
+        Campos desconhecidos no corpo são rejeitados com `400`.
+        Cada item de `actions` pode ser enviado como string (o backend converte para
+        `{ "text": "...", "done": false }`) ou como objeto completo.
+      operationId: createAlert
+      tags:
+        - Alertas
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertInput'
+            example:
+              type: congestion
+              title: Congestionamento previsto no switch de agregação
+              area: Campinas
+              equipments:
+                - SW-CAMP-07
+              risk: medium
+              accuracy: 78
+              predicted_for: "2026-10-03T18:00:00.000Z"
+              context: Aumento contínuo de pacotes nas últimas 48h.
+              causes:
+                - Crescimento de tráfego no horário de pico
+              actions:
+                - Verificar filas de saída da interface Gi0/2
+      responses:
+        "201":
+          description: Alerta criado com sucesso. O header `Location` aponta para o novo recurso.
+          headers:
+            Location:
+              description: URL do alerta recém-criado.
+              schema:
+                type: string
+              example: /api/alerts/17
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Alert'
+              example:
+                data:
+                  id: 17
+                  type: congestion
+                  title: Congestionamento previsto no switch de agregação
+                  area: Campinas
+                  equipments:
+                    - SW-CAMP-07
+                  risk: medium
+                  accuracy: 78
+                  predicted_for: "2026-10-03T18:00:00.000Z"
+                  status: new
+                  context: Aumento contínuo de pacotes nas últimas 48h.
+                  causes:
+                    - Crescimento de tráfego no horário de pico
+                  actions:
+                    - text: Verificar filas de saída da interface Gi0/2
+                      done: false
+                  confirmed: null
+                  created_at: "2026-10-02T14:03:11.123Z"
+                  updated_at: "2026-10-02T14:03:11.123Z"
+        "400":
+          description: Corpo inválido (campo ausente, tipo incorreto ou campo desconhecido).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Dados inválidos.
+                  details:
+                    - field: type
+                      message: Valor inválido
+        "401":
+          description: Header `X-API-Key` ausente ou incorreto.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: Chave de API inválida ou ausente.
+
+  /api/alerts/summary:
+    get:
+      summary: Contagens para a visão geral do dashboard
+      description: >
+        Retorna contagens de alertas por status e risco, além da lista de áreas distintas.
+        Aplica a mesma lógica de expiração automática que o `GET /api/alerts`.
+
+        - `total_active`, `new_count` e `by_risk` consideram apenas alertas ativos (`new`, `in_analysis`, `monitoring`).
+        - `by_status` considera todos os alertas não arquivados (inclui chaves com valor `0`).
+        - `areas` = áreas distintas dos alertas não arquivados, em ordem alfabética.
+      operationId: getAlertsSummary
+      tags:
+        - Alertas
+      responses:
+        "200":
+          description: Resumo dos alertas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertSummaryResponse'
+              example:
+                data:
+                  total_active: 12
+                  new_count: 4
+                  by_risk:
+                    high: 3
+                    medium: 5
+                    low: 4
+                  by_status:
+                    new: 4
+                    in_analysis: 2
+                    monitoring: 6
+                    resolved: 8
+                    false_positive: 1
+                    expired: 2
+                  areas:
+                    - Campinas
+                    - São Paulo - Zona Leste
+
+  /api/alerts/{id}:
+    get:
+      summary: Detalhe de um alerta
+      description: >
+        Retorna o alerta pelo `id`. Retorna `404` se o alerta não existe ou está arquivado (`deleted_at` preenchido).
+        Aplica a lógica de expiração automática antes de responder.
+      operationId: getAlert
+      tags:
+        - Alertas
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Identificador inteiro positivo do alerta.
+          schema:
+            type: integer
+            minimum: 1
+          example: 17
+      responses:
+        "200":
+          description: Alerta encontrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Alert'
+              example:
+                data:
+                  id: 17
+                  type: bandwidth_exceeded
+                  title: Saturação prevista no link do backbone Zona Leste
+                  area: São Paulo - Zona Leste
+                  equipments:
+                    - RTR-SP-ZL-01
+                  risk: high
+                  accuracy: 87
+                  predicted_for: "2026-10-03T02:30:00.000Z"
+                  status: new
+                  context: O tráfego no link principal vem crescendo continuamente.
+                  causes:
+                    - Aumento sazonal de tráfego de streaming
+                  actions:
+                    - text: Verificar utilização de banda na interface Gi0/1
+                      done: false
+                  confirmed: null
+                  created_at: "2026-10-02T14:03:11.123Z"
+                  updated_at: "2026-10-02T14:03:11.123Z"
+        "400":
+          description: ID inválido (não numérico ou menor que 1).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Dados inválidos.
+                  details:
+                    - field: id
+                      message: Valor inválido
+        "404":
+          description: Alerta não encontrado ou arquivado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Alerta não encontrado.
+
+    patch:
+      summary: Atualização parcial de um alerta
+      description: >
+        Atualiza um subconjunto dos campos de um alerta. O campo `updated_at` é atualizado automaticamente.
+
+        **Campos proibidos:** `id`, `created_at`, `updated_at` — enviar qualquer um deles retorna `400`.
+
+        **Corpo vazio (`{}`)** também retorna `400`.
+
+        Ao enviar `actions`, o array é **substituído integralmente**: inclua todas as ações (existentes + novas)
+        para não perder marcações (`done`) feitas pelo analista. Recomendado: leia o alerta com `GET /:id` antes de enviar `PATCH`.
+
+        O agente pode incluir `X-API-Key` nessa requisição para identificação nos logs.
+      operationId: updateAlert
+      tags:
+        - Alertas
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          example: 17
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertPatch'
+            examples:
+              mudar_status:
+                summary: Mudar status para em_análise
+                value:
+                  status: in_analysis
+              ajustar_certeza:
+                summary: Ajustar certeza e adicionar ação
+                value:
+                  accuracy: 92
+                  actions:
+                    - text: Verificar utilização de banda na interface Gi0/1
+                      done: true
+                    - text: Nova ação adicionada pelo agente
+                      done: false
+              confirmar_previsao:
+                summary: Registrar que a previsão se confirmou
+                value:
+                  confirmed: true
+                  status: resolved
+      responses:
+        "200":
+          description: Alerta atualizado com sucesso.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Alert'
+        "400":
+          description: Corpo inválido (campo proibido, tipo incorreto, corpo vazio ou campo desconhecido).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: Dados inválidos.
+                  details:
+                    - field: id
+                      message: Campo não permitido na atualização
+        "404":
+          description: Alerta não encontrado ou arquivado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Alerta não encontrado.
+
+    delete:
+      summary: Arquiva (soft delete) um alerta
+      description: >
+        Realiza um **soft delete**: preenche `deleted_at` com a data/hora atual.
+        O registro permanece no banco para auditoria, mas some de todas as consultas da API.
+        Para consultar alertas arquivados, acesse o banco SQLite diretamente.
+      operationId: deleteAlert
+      tags:
+        - Alertas
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          example: 17
+      responses:
+        "204":
+          description: Alerta arquivado. Sem corpo na resposta.
+        "400":
+          description: ID inválido.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Alerta não encontrado ou já arquivado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: NOT_FOUND
+                  message: Alerta não encontrado.
+
+tags:
+  - name: Alertas
+    description: Operações sobre alertas preditivos de rede.
+  - name: Utilitários
+    description: Endpoints de suporte (saúde do servidor, documentação).

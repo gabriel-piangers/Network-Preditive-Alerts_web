@@ -2,13 +2,25 @@
 // Separado de server.js para que os testes possam importar o app diretamente
 // e usar um banco SQLite em memória (DB_PATH=:memory:).
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { parse as parseYaml } from 'yaml';
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
 import { CORS_ORIGIN } from './config.js';
 import alertsRouter from './routes/alerts.routes.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { agentRequestLogger } from './middleware/agentRequestLogger.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Carrega e parseia o openapi.yaml em tempo de inicialização
+const openapiDoc = parseYaml(
+  readFileSync(join(__dirname, '../docs/openapi.yaml'), 'utf8'),
+);
 
 const app = express();
 
@@ -25,6 +37,9 @@ app.use(agentRequestLogger);
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
+
+// Documentação Swagger UI — servida a partir do openapi.yaml
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiDoc));
 
 // Rotas de alertas sob o prefixo /api/alerts
 app.use('/api/alerts', alertsRouter);
