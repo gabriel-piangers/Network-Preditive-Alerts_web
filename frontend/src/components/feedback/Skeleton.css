@@ -1,0 +1,40 @@
+/* Animação de skeleton (estado de carregamento).
+   Conforme seção 7.8 do SPEC. */
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.skeleton {
+  background-color: var(--color-border);
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton--text {
+  height: 14px;
+  margin-bottom: var(--space-1);
+}
+
+.skeleton--short  { width: 60px; }
+.skeleton--medium { width: 110px; }
+.skeleton--wide   { width: 180px; }
+
+/* Card skeleton */
+.skeleton-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 140px;
+}
+
+/* Row skeleton */
+.skeleton-row td {
+  padding: var(--space-4) var(--space-4);
+  vertical-align: middle;
+}

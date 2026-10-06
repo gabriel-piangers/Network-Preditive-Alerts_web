@@ -1,0 +1,130 @@
+.filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: flex-start;
+  padding: var(--space-4) var(--space-5);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.filters-bar__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: none;
+  padding: 0;
+  min-width: 0;
+}
+
+.filters-bar__group--clear {
+  justify-content: flex-end;
+  align-self: flex-end;
+}
+
+.filters-bar__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+}
+
+.filters-bar__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Chips de filtro (checkbox disfarçado) */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-3);
+  background-color: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.12s, background-color 0.12s;
+}
+
+.filter-chip:hover {
+  border-color: var(--color-primary);
+}
+
+.filter-chip--active {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+/* Chips de risco quando ativos usam a cor semântica */
+.filter-chip--risk-high.filter-chip--active {
+  background-color: var(--color-risk-high);
+  border-color: var(--color-risk-high);
+}
+
+.filter-chip--risk-medium.filter-chip--active {
+  background-color: var(--color-risk-medium);
+  border-color: var(--color-risk-medium);
+}
+
+.filter-chip--risk-low.filter-chip--active {
+  background-color: var(--color-risk-low);
+  border-color: var(--color-risk-low);
+}
+
+/* Esconde o input nativo do checkbox visualmente */
+.filter-chip__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Select de área */
+.filters-bar__select {
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  min-width: 160px;
+}
+
+.filters-bar__select:focus {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Slider de certeza mínima */
+.filters-bar__slider {
+  width: 140px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+/* Botão de limpar */
+.filters-bar__clear-btn {
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.filters-bar__clear-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
