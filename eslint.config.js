@@ -1,26 +1,41 @@
 import js from '@eslint/js';
+import globals from 'globals';
 
 export default [
   js.configs.recommended,
   {
-    // Aplica a todo o monorepo (backend e frontend)
-    files: ['backend/**/*.js', 'frontend/src/**/*.{js,jsx}'],
+    // Backend: Node.js
+    files: ['backend/**/*.js'],
     languageOptions: {
       ecmaVersion: 2024,
       sourceType: 'module',
       globals: {
-        console: 'readonly',
-        process: 'readonly',
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-        URL: 'readonly',
-        fetch: 'readonly',
+        ...globals.node,
       },
     },
     rules: {
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      'no-console': 'off',
+    },
+  },
+  {
+    // Frontend: browser + JSX
+    files: ['frontend/src/**/*.{js,jsx}'],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: 'module',
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
+      },
+      globals: {
+        ...globals.browser,
+      },
+    },
+    rules: {
+      // JSX usa os imports como factory — o plugin React não está instalado,
+      // por isso desabilitamos o no-unused-vars para variáveis iniciadas com
+      // letra maiúscula (componentes React) e para imports usados só em JSX.
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^[A-Z]' }],
       'no-console': 'off',
     },
   },
