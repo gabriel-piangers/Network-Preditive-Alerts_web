@@ -1,23 +1,19 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Bot, User, BarChart2, Loader } from 'lucide-react';
 import { sendChatMessage } from '../../api/analytics.js';
+import { useAnalytics } from '../../context/AnalyticsContext.jsx';
 import './ChatPanel.css';
 
 /**
  * Painel de chat com o Gemini para solicitar geração de gráficos.
+ * O histórico de mensagens é persistido no AnalyticsContext — sobrevive
+ * à navegação entre páginas.
  *
  * Props:
- *  onChartGenerated(chart, spec, title) — chamado sempre que um gráfico novo chegar
  *  disabled — desabilita o input quando o serviço está indisponível
  */
-export default function ChatPanel({ onChartGenerated, disabled = false }) {
-  const [messages, setMessages] = useState([
-    {
-      role: 'model',
-      content:
-        'Olá! Sou o assistente de Analytics. Peça-me para criar gráficos comparativos dos dados de incidentes de rede.\n\nExemplos:\n• "Mostre um gráfico de barras com incidentes por nível de risco"\n• "Quero um pizza com a distribuição por status"\n• "Compare latência média por categoria de falha"\n• "Mostre a correlação entre perda de pacotes e latência"',
-    },
-  ]);
+export default function ChatPanel({ disabled = false }) {
+  const { messages, addMessage, addChart } = useAnalytics();
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
@@ -32,44 +28,36 @@ export default function ChatPanel({ onChartGenerated, disabled = false }) {
     const text = input.trim();
     if (!text || loading) return;
 
-    const userMessage = { role: 'user', content: text };
-    const updatedMessages = [...messages, userMessage];
-
-    setMessages(updatedMessages);
+    addMessage({ role: 'user', content: text });
     setInput('');
     setLoading(true);
 
-    // Histórico para o backend (exclui a mensagem de boas-vindas)
-    const historyForApi = updatedMessages.slice(1).map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
+    // Histórico para a API: exclui a mensagem de boas-vindas (índice 0)
+    // e exclui a mensagem que acabamos de adicionar (última) — ela é o "user_message"
+    const historyForApi = [...messages, { role: 'user', content: text }]
+      .slice(1)          // remove boas-vindas
+      .slice(0, -1)      // remove a mensagem atual (já é o parâmetro message)
+      .map(({ role, content }) => ({ role, content }));
 
     try {
-      const result = await sendChatMessage(text, historyForApi.slice(0, -1));
+      const result = await sendChatMessage(text, historyForApi);
 
-      setMessages((prev) => [
-        ...prev,
-        { role: 'model', content: result.text },
-      ]);
+      addMessage({ role: 'model', content: result.text });
 
       if (result.chart && result.chart_spec) {
-        onChartGenerated(result.chart, result.chart_spec, result.chart_spec.title ?? text);
+        addChart(result.chart, result.chart_spec, result.chart_spec.title ?? text);
       }
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'model',
-          content: `❌ Erro ao processar sua solicitação: ${err.message}`,
-          isError: true,
-        },
-      ]);
+      addMessage({
+        role: 'model',
+        content: `❌ Erro ao processar sua solicitação: ${err.message}`,
+        isError: true,
+      });
     } finally {
       setLoading(false);
       inputRef.current?.focus();
     }
-  }, [input, loading, messages, onChartGenerated]);
+  }, [input, loading, messages, addMessage, addChart]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

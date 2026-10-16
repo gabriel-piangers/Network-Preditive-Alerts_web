@@ -1,55 +1,39 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Activity, AlertTriangle, TrendingUp, BarChart2 } from 'lucide-react';
 import ChatPanel from '../components/analytics/ChatPanel.jsx';
 import ChartDashboard from '../components/analytics/ChartDashboard.jsx';
 import { checkAnalyticsHealth } from '../api/analytics.js';
 import { useAlertsSummary } from '../hooks/useAlertsSummary.js';
+import { useAnalytics } from '../context/AnalyticsContext.jsx';
 import './AnalyticsPage.css';
 
 /**
  * Página de Analytics (/analytics).
  * Layout split: chat (Gemini) à esquerda, dashboard de gráficos Plotly à direita.
+ * O estado de charts e messages vive no AnalyticsContext — persiste ao trocar de página.
  */
 export default function AnalyticsPage() {
-  const [charts, setCharts] = useState([]);
-  const [serviceOnline, setServiceOnline] = useState(null); // null = checando
+  const { charts, removeChart, updateChart } = useAnalytics();
+  const [serviceOnline, setServiceOnline] = useState(null);
   const summaryQuery = useAlertsSummary();
   const summary = summaryQuery.data?.data ?? null;
 
-  // Verifica se o microserviço Python está no ar
   useEffect(() => {
     checkAnalyticsHealth().then((ok) => setServiceOnline(ok));
-  }, []);
-
-  const handleChartGenerated = useCallback((chart, spec, title) => {
-    const id = `chart-${Date.now()}`;
-    setCharts((prev) => [...prev, { id, chart, spec, title }]);
-  }, []);
-
-  const handleRemoveChart = useCallback((id) => {
-    setCharts((prev) => prev.filter((c) => c.id !== id));
-  }, []);
-
-  const handleUpdateChart = useCallback((id, newChart) => {
-    setCharts((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, chart: newChart } : c)),
-    );
   }, []);
 
   // Cards de métricas vindos do summary existente
   const totalAtivos = summary?.total_active ?? '—';
   const criticos = summary?.by_risco?.Crítico ?? '—';
-  const resolvidos = summary?.by_status?.Resolvido ?? '—';
   const emAndamento = summary?.by_status?.['Em Andamento'] ?? '—';
-  const totalGeral =
-    summary
-      ? (summary.by_status?.Aberto ?? 0) +
-        (summary.by_status?.['Em Andamento'] ?? 0) +
-        (summary.by_status?.Resolvido ?? 0)
-      : '—';
+  const totalGeral = summary
+    ? (summary.by_status?.Aberto ?? 0) +
+      (summary.by_status?.['Em Andamento'] ?? 0) +
+      (summary.by_status?.Resolvido ?? 0)
+    : null;
   const taxaResolucao =
-    summary && typeof totalGeral === 'number' && totalGeral > 0
-      ? `${Math.round((summary.by_status.Resolvido / totalGeral) * 100)}%`
+    totalGeral && totalGeral > 0
+      ? `${Math.round(((summary.by_status?.Resolvido ?? 0) / totalGeral) * 100)}%`
       : '—';
 
   return (
@@ -119,17 +103,14 @@ export default function AnalyticsPage() {
       {/* Layout principal: chat + dashboard */}
       <div className="analytics-page__workspace">
         <aside className="analytics-page__chat-col" aria-label="Chat com o assistente">
-          <ChatPanel
-            onChartGenerated={handleChartGenerated}
-            disabled={serviceOnline === false}
-          />
+          <ChatPanel disabled={serviceOnline === false} />
         </aside>
 
         <section className="analytics-page__dashboard-col" aria-label="Dashboard de gráficos">
           <ChartDashboard
             charts={charts}
-            onRemove={handleRemoveChart}
-            onUpdate={handleUpdateChart}
+            onRemove={removeChart}
+            onUpdate={updateChart}
           />
         </section>
       </div>
