@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout.jsx';
 import AlertsListPage from './pages/AlertsListPage.jsx';
 import AlertDetailPage from './pages/AlertDetailPage.jsx';
+import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 
 /**
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/alerts" replace />} />
         <Route path="/alerts" element={<AlertsListPage />} />
         <Route path="/alerts/:id" element={<AlertDetailPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </AppLayout>

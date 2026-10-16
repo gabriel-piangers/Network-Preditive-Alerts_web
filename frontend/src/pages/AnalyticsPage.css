@@ -1,0 +1,147 @@
+.analytics-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6) 0;
+}
+
+/* Cabeçalho da página */
+.analytics-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.analytics-page__title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.analytics-page__subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Badge de status do serviço */
+.analytics-page__service-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-1) var(--space-3);
+  border-radius: 99px;
+  border: 1px solid;
+}
+
+.analytics-page__service-badge--online {
+  color: var(--color-risk-baixo);
+  background-color: var(--color-risk-baixo-bg);
+  border-color: var(--color-risk-baixo);
+}
+
+.analytics-page__service-badge--offline {
+  color: var(--color-feedback-error);
+  background-color: var(--color-feedback-error-bg);
+  border-color: var(--color-feedback-error);
+}
+
+.analytics-page__service-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
+}
+
+/* Grid de cards de métricas */
+.analytics-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+/* Card individual */
+.analytics-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+}
+
+.analytics-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.analytics-card__icon--blue {
+  background-color: var(--color-status-aberto-bg);
+  color: var(--color-status-aberto);
+}
+
+.analytics-card__icon--red {
+  background-color: var(--color-risk-alto-bg);
+  color: var(--color-risk-alto);
+}
+
+.analytics-card__icon--green {
+  background-color: var(--color-risk-baixo-bg);
+  color: var(--color-risk-baixo);
+}
+
+.analytics-card__icon--purple {
+  background-color: var(--color-status-em-andamento-bg);
+  color: var(--color-status-em-andamento);
+}
+
+.analytics-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.analytics-card__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.analytics-card__value {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  line-height: 1;
+}
+
+/* Layout principal: chat + dashboard */
+.analytics-page__workspace {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: var(--space-5);
+  align-items: start;
+  min-height: 560px;
+}
+
+.analytics-page__chat-col {
+  position: sticky;
+  top: calc(56px + var(--space-6)); /* altura do header + espaço */
+}
+
+.analytics-page__dashboard-col {
+  min-width: 0;
+}

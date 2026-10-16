@@ -57,6 +57,11 @@
   text-decoration: none;
 }
 
+.header__nav-link--active {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-bold);
+}
+
 .header__nav-link:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
