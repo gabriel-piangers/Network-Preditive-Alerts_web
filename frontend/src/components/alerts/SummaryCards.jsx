@@ -4,7 +4,6 @@ import './SummaryCards.css';
 /**
  * Cards de visão geral com contagens da API /api/alerts/summary.
  * Clicar em um card aplica o filtro correspondente na lista.
- * Conforme seção 7.6 do SPEC.
  *
  * @param {{
  *   summary: object,
@@ -16,7 +15,7 @@ import './SummaryCards.css';
 export default function SummaryCards({ summary, isLoading, filters, onFilterChange }) {
   if (isLoading && !summary) {
     return (
-      <div className="summary-cards" aria-label="Visão geral de alertas">
+      <div className="summary-cards" aria-label="Visão geral de incidentes">
         {Array.from({ length: 5 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
@@ -25,32 +24,29 @@ export default function SummaryCards({ summary, isLoading, filters, onFilterChan
   }
 
   const data = summary?.data ?? {};
-  const byRisk = data.by_risk ?? {};
+  const byRisco = data.by_risco ?? {};
 
   // Verifica qual card está ativo para destacá-lo
-  function isActiveCard(cardStatus, cardRisk) {
-    const statusArr = filters?.status ?? [];
-    const riskArr = filters?.risk ?? [];
+  function isActiveCard(cardStatus, cardRisco) {
+    const statusArr = filters?.incidente_status ?? [];
+    const riscoArr = filters?.falha_risco ?? [];
 
     if (cardStatus === 'active') {
-      // "Alertas ativos": status contém exatamente os 3 ativos e sem filtro de risco
       return (
-        statusArr.includes('new') &&
-        statusArr.includes('in_analysis') &&
-        statusArr.includes('monitoring') &&
-        riskArr.length === 0
+        statusArr.includes('Aberto') &&
+        statusArr.includes('Em Andamento') &&
+        riscoArr.length === 0
       );
     }
-    if (cardStatus === 'new') {
-      return statusArr.length === 1 && statusArr[0] === 'new' && riskArr.length === 0;
+    if (cardStatus === 'Aberto') {
+      return statusArr.length === 1 && statusArr[0] === 'Aberto' && riscoArr.length === 0;
     }
-    if (cardRisk) {
+    if (cardRisco) {
       return (
-        statusArr.includes('new') &&
-        statusArr.includes('in_analysis') &&
-        statusArr.includes('monitoring') &&
-        riskArr.length === 1 &&
-        riskArr[0] === cardRisk
+        statusArr.includes('Aberto') &&
+        statusArr.includes('Em Andamento') &&
+        riscoArr.length === 1 &&
+        riscoArr[0] === cardRisco
       );
     }
     return false;
@@ -59,50 +55,50 @@ export default function SummaryCards({ summary, isLoading, filters, onFilterChan
   const cards = [
     {
       id: 'active',
-      label: 'Alertas ativos',
+      label: 'Incidentes ativos',
       value: data.total_active ?? 0,
       onClick: () =>
-        onFilterChange({ status: ['new', 'in_analysis', 'monitoring'], risk: [], page: 1 }),
+        onFilterChange({ incidente_status: ['Aberto', 'Em Andamento'], falha_risco: [], page: 1 }),
       active: isActiveCard('active'),
     },
     {
-      id: 'new',
-      label: 'Novos',
-      value: data.new_count ?? 0,
-      onClick: () => onFilterChange({ status: ['new'], risk: [], page: 1 }),
-      active: isActiveCard('new'),
+      id: 'aberto',
+      label: 'Abertos',
+      value: data.abertos ?? 0,
+      onClick: () => onFilterChange({ incidente_status: ['Aberto'], falha_risco: [], page: 1 }),
+      active: isActiveCard('Aberto'),
     },
     {
-      id: 'high',
+      id: 'critico',
+      label: 'Risco crítico',
+      value: byRisco['Crítico'] ?? 0,
+      onClick: () =>
+        onFilterChange({ incidente_status: ['Aberto', 'Em Andamento'], falha_risco: ['Crítico'], page: 1 }),
+      active: isActiveCard(null, 'Crítico'),
+      modifier: 'critico',
+    },
+    {
+      id: 'alto',
       label: 'Risco alto',
-      value: byRisk.high ?? 0,
+      value: byRisco['Alto'] ?? 0,
       onClick: () =>
-        onFilterChange({ status: ['new', 'in_analysis', 'monitoring'], risk: ['high'], page: 1 }),
-      active: isActiveCard(null, 'high'),
-      modifier: 'high',
+        onFilterChange({ incidente_status: ['Aberto', 'Em Andamento'], falha_risco: ['Alto'], page: 1 }),
+      active: isActiveCard(null, 'Alto'),
+      modifier: 'alto',
     },
     {
-      id: 'medium',
+      id: 'medio',
       label: 'Risco médio',
-      value: byRisk.medium ?? 0,
+      value: byRisco['Médio'] ?? 0,
       onClick: () =>
-        onFilterChange({ status: ['new', 'in_analysis', 'monitoring'], risk: ['medium'], page: 1 }),
-      active: isActiveCard(null, 'medium'),
-      modifier: 'medium',
-    },
-    {
-      id: 'low',
-      label: 'Risco baixo',
-      value: byRisk.low ?? 0,
-      onClick: () =>
-        onFilterChange({ status: ['new', 'in_analysis', 'monitoring'], risk: ['low'], page: 1 }),
-      active: isActiveCard(null, 'low'),
-      modifier: 'low',
+        onFilterChange({ incidente_status: ['Aberto', 'Em Andamento'], falha_risco: ['Médio'], page: 1 }),
+      active: isActiveCard(null, 'Médio'),
+      modifier: 'medio',
     },
   ];
 
   return (
-    <div className="summary-cards" aria-label="Visão geral de alertas">
+    <div className="summary-cards" aria-label="Visão geral de incidentes">
       {cards.map((card) => (
         <button
           key={card.id}

@@ -41,14 +41,14 @@
 }
 
 /* Cores semânticas nos cards de risco */
-.summary-card--high .summary-card__value {
-  color: var(--color-risk-high);
+.summary-card--critico .summary-card__value {
+  color: var(--color-risk-critico);
 }
 
-.summary-card--medium .summary-card__value {
-  color: var(--color-risk-medium);
+.summary-card--alto .summary-card__value {
+  color: var(--color-risk-alto);
 }
 
-.summary-card--low .summary-card__value {
-  color: var(--color-risk-low);
+.summary-card--medio .summary-card__value {
+  color: var(--color-risk-medio);
 }

@@ -1,6 +1,6 @@
-// Script de seed: popula o banco com alertas realistas para demonstração e testes.
-// Uso: npm run seed           (apaga alertas existentes e reinicia)
-//      npm run seed -- --keep (mantém alertas existentes e adiciona)
+// Script de seed: popula o banco com incidentes realistas para demonstração e testes.
+// Uso: npm run seed           (apaga incidentes existentes e reinicia)
+//      npm run seed -- --keep (mantém incidentes existentes e adiciona)
 //
 // Os dados simulam um cenário real de uma operadora de telecomunicações.
 
@@ -9,314 +9,284 @@ import db from '../src/db/connection.js';
 
 const keepExisting = process.argv.includes('--keep');
 
-// Referência de tempo fixa na inicialização: garante consistência entre todos os registros
-// do mesmo seed (não usar Date.now() inline para evitar datas ligeiramente diferentes).
-const _seedNow = new Date();
-const hoursFromNow = (h) => new Date(_seedNow.getTime() + h * 3_600_000).toISOString();
-const hoursAgo = (h) => hoursFromNow(-h);
+const now = new Date().toISOString();
 
-// Alertas realistas com variedade de tipos, riscos, status e áreas
-// Garante ao menos 4 com status 'new' e 3 de risco alto ativos (critério da SPEC)
-const seedAlerts = [
-  // --- Alertas ATIVOS (new) ---
+// Incidentes realistas com variedade de categorias, riscos, status e localizações
+const seedIncidents = [
   {
-    type: 'bandwidth_exceeded',
-    title: 'Saturação prevista no link do backbone Zona Leste',
-    area: 'São Paulo - Zona Leste',
-    equipments: JSON.stringify(['RTR-SP-ZL-01', 'SW-SP-ZL-04']),
-    risk: 'high',
-    accuracy: 87,
-    predicted_for: hoursFromNow(3),
-    status: 'new',
-    context:
-      'O tráfego no link principal vem crescendo de forma contínua há 5 dias e deve ultrapassar 95% da capacidade nas próximas horas.\nO mesmo padrão foi visto em 12/09 antes de uma queda de serviço.',
-    causes: JSON.stringify(['Aumento sazonal de tráfego de streaming', 'Rota alternativa desativada para manutenção']),
-    actions: JSON.stringify([
-      { text: 'Verificar utilização de banda na interface Gi0/1', done: false },
-      { text: 'Avaliar redirecionamento parcial do tráfego para a rota alternativa', done: false },
+    id_falha: 'INC-2026001',
+    cliente_id: 'CLI-1000',
+    cliente_nome: 'Ana Souza',
+    cliente_banda: '500 Mbps',
+    dispositivo_id: 'DEV-500',
+    dispositivo_nome: 'ONU Huawei EG8141A5',
+    dispositivo_tipo_conexao: 'Fibra FTTH',
+    dispositivo_no_pai: 'OLT-CENTRAL-01',
+    falha_categoria: 'Perda de pacotes',
+    falha_descricao: 'Perda de pacote intermitente',
+    falha_localizacao: 'Porto Alegre, RS - Moinhos de Vento',
+    perda_pacotes_pct: 12.5,
+    latencia_ms: 85.2,
+    falha_risco: 'Alto',
+    falha_inicio: '2026-10-01 08:30:00',
+    falha_resolucao: '2026-10-01 09:12:00',
+    solucao_aplicada: 'Reset remoto de porta OLT',
+    incidente_status: 'Resolvido',
+    acao_automatizada: 'TRUE',
+    contexto: 'Perda de pacote intermitente detectada na porta 4 do OLT-CENTRAL-01. Padrão sugere degradação do conector óptico. Ação automática de reset de porta aplicada com sucesso.',
+    causas: JSON.stringify(['Degradação do conector óptico na porta OLT', 'Flutuação de potência óptica abaixo do threshold']),
+    acoes: JSON.stringify([
+      { text: 'Monitorar potência óptica na porta afetada por 24h', done: true },
+      { text: 'Agendar substituição preventiva do conector se recorrente', done: false },
     ]),
-    confirmed: null,
   },
   {
-    type: 'congestion',
-    title: 'Congestionamento previsto no switch de agregação de Campinas',
-    area: 'Campinas',
-    equipments: JSON.stringify(['SW-CAMP-07', 'SW-CAMP-08']),
-    risk: 'high',
-    accuracy: 92,
-    predicted_for: hoursFromNow(6),
-    status: 'new',
-    context:
-      'Padrão de crescimento de pacotes nas últimas 48h indica sobrecarga iminente no horário de pico.\nEquipamentos SW-CAMP-07 e SW-CAMP-08 operam acima de 80% da capacidade.',
-    causes: JSON.stringify([
-      'Crescimento de tráfego no horário de pico',
-      'Falta de QoS configurado para priorização de tráfego crítico',
+    id_falha: 'INC-2026002',
+    cliente_id: 'CLI-1001',
+    cliente_nome: 'Carlos Silva',
+    cliente_banda: '1 Gbps',
+    dispositivo_id: 'DEV-501',
+    dispositivo_nome: 'Router TP-Link Archer C6',
+    dispositivo_tipo_conexao: 'Rádio',
+    dispositivo_no_pai: 'OLT-NORTE-03',
+    falha_categoria: 'LOS (Loss of Signal)',
+    falha_descricao: 'Queda total de sinal (Loss of Signal)',
+    falha_localizacao: 'Porto Alegre, RS - Cidade Baixa',
+    perda_pacotes_pct: 100,
+    latencia_ms: 999,
+    falha_risco: 'Crítico',
+    falha_inicio: '2026-10-01 11:15:00',
+    falha_resolucao: '2026-10-01 13:45:00',
+    solucao_aplicada: 'Substituição física de conector óptico',
+    incidente_status: 'Resolvido',
+    acao_automatizada: 'FALSE',
+    contexto: 'Perda total de sinal óptico no OLT-NORTE-03. Equipe de campo identificou conector danificado fisicamente. Substituição realizada com restabelecimento completo do serviço.',
+    causas: JSON.stringify(['Conector óptico danificado fisicamente', 'Possível tração mecânica no cabo de acesso']),
+    acoes: JSON.stringify([
+      { text: 'Despachar equipe de campo para inspeção física', done: true },
+      { text: 'Substituir conector óptico', done: true },
+      { text: 'Validar potência óptica após substituição', done: true },
     ]),
-    actions: JSON.stringify([
-      { text: 'Verificar filas de saída da interface Gi0/2', done: false },
-      { text: 'Aplicar políticas de QoS para priorizar tráfego VoIP', done: false },
-      { text: 'Acionar equipe de campo para inspeção presencial', done: false },
-    ]),
-    confirmed: null,
   },
   {
-    type: 'equipment_failure',
-    title: 'Falha iminente detectada no OLT da Zona Norte',
-    area: 'São Paulo - Zona Norte',
-    equipments: JSON.stringify(['OLT-SP-ZN-03']),
-    risk: 'high',
-    accuracy: 79,
-    predicted_for: hoursFromNow(12),
-    status: 'new',
-    context:
-      'O OLT-SP-ZN-03 apresentou 3 reinicializações inesperadas nas últimas 24h.\nTemperatura interna acima do limite de operação normal (78°C vs. limite de 70°C).',
-    causes: JSON.stringify([
-      'Superaquecimento por falha no sistema de refrigeração',
-      'Firmware desatualizado — versão atual é 3.1.2; versão recomendada é 3.2.0',
+    id_falha: 'INC-2026003',
+    cliente_id: 'CLI-1002',
+    cliente_nome: 'Beatriz Lima',
+    cliente_banda: '300 Mbps',
+    dispositivo_id: 'DEV-502',
+    dispositivo_nome: 'Modem Motorola SB6190',
+    dispositivo_tipo_conexao: 'Cabo Coaxial',
+    dispositivo_no_pai: 'CGNAT-SUL-02',
+    falha_categoria: 'Latência elevada',
+    falha_descricao: 'Latência elevada em horário de pico',
+    falha_localizacao: 'Canoas, RS - Centro',
+    perda_pacotes_pct: 2.1,
+    latencia_ms: 145,
+    falha_risco: 'Médio',
+    falha_inicio: '2026-10-01 14:00:00',
+    falha_resolucao: '2026-10-01 14:45:00',
+    solucao_aplicada: 'Ajuste de banda no profile do assinante',
+    incidente_status: 'Resolvido',
+    acao_automatizada: 'TRUE',
+    contexto: 'Latência elevada detectada no segmento coaxial de Canoas. Análise aponta sobrecarga no CGNAT-SUL-02 em horário de pico. Ajuste de QoS resolveu o problema.',
+    causas: JSON.stringify(['Congestionamento no nó CGNAT em horário de pico', 'Profile de banda desatualizado para o perfil de uso do assinante']),
+    acoes: JSON.stringify([
+      { text: 'Aplicar ajuste de QoS no CGNAT-SUL-02', done: true },
+      { text: 'Revisar profiles de banda dos assinantes do nó', done: false },
     ]),
-    actions: JSON.stringify([
-      { text: 'Verificar temperatura e ventilação do rack no datacenter da ZN', done: false },
-      { text: 'Agendar atualização de firmware para janela de manutenção', done: false },
-      { text: 'Ativar rota de contingência para os clientes do OLT-SP-ZN-03', done: false },
-    ]),
-    confirmed: null,
   },
   {
-    type: 'latency',
-    title: 'Latência elevada prevista no enlace SP → Rio de Janeiro',
-    area: 'São Paulo - Centro',
-    equipments: JSON.stringify(['RTR-SP-CT-02', 'RTR-RJ-CT-01']),
-    risk: 'medium',
-    accuracy: 74,
-    predicted_for: hoursFromNow(8),
-    status: 'new',
-    context:
-      'Latência no enlace SP-RJ subiu de 4ms para 18ms ao longo do dia, indicando possível degradação de fibra ou sobrecarga no roteador de borda.',
-    causes: JSON.stringify([
-      'Possível microfissura na fibra óptica no trecho de Guaratinguetá',
-      'BGP flapping detectado nas últimas 6h',
+    id_falha: 'INC-2026004',
+    cliente_id: 'CLI-1003',
+    cliente_nome: 'Diego Ferreira',
+    cliente_banda: '600 Mbps',
+    dispositivo_id: 'DEV-503',
+    dispositivo_nome: 'OLT ZTE C320',
+    dispositivo_tipo_conexao: 'Fibra FTTH',
+    dispositivo_no_pai: 'BACKBONE-LESTE-01',
+    falha_categoria: 'Falha de equipamento',
+    falha_descricao: 'OLT com reinicializações frequentes',
+    falha_localizacao: 'Novo Hamburgo, RS - Centro',
+    perda_pacotes_pct: 45.0,
+    latencia_ms: 320,
+    falha_risco: 'Crítico',
+    falha_inicio: '2026-10-05 09:00:00',
+    falha_resolucao: null,
+    solucao_aplicada: null,
+    incidente_status: 'Em Andamento',
+    acao_automatizada: 'FALSE',
+    contexto: 'OLT ZTE C320 apresentando 5 reinicializações nas últimas 3 horas. Temperatura interna em 81°C (limite: 70°C). Impacta 240 assinantes ativos. Equipe de NOC acionada.',
+    causas: JSON.stringify(['Superaquecimento por falha no sistema de ventilação', 'Firmware v3.1.2 com bug de gerenciamento de memória confirmado pelo fabricante']),
+    acoes: JSON.stringify([
+      { text: 'Verificar temperatura e ventilação do rack', done: true },
+      { text: 'Acionar equipe de campo para inspeção presencial', done: true },
+      { text: 'Atualizar firmware para v3.2.0', done: false },
+      { text: 'Ativar rota de contingência para os 240 assinantes afetados', done: false },
     ]),
-    actions: JSON.stringify([
-      { text: 'Executar traceroute entre RTR-SP-CT-02 e RTR-RJ-CT-01', done: false },
-      { text: 'Solicitar análise de OTDR no trecho Guaratinguetá', done: false },
-    ]),
-    confirmed: null,
-  },
-
-  // --- Alertas EM ANÁLISE ---
-  {
-    type: 'packet_loss',
-    title: 'Perda de pacotes prevista na rede de acesso de Ribeirão Preto',
-    area: 'Ribeirão Preto',
-    equipments: JSON.stringify(['SW-RP-AC-11', 'SW-RP-AC-12', 'RTR-RP-BD-01']),
-    risk: 'medium',
-    accuracy: 83,
-    predicted_for: hoursFromNow(5),
-    status: 'in_analysis',
-    context:
-      'Taxa de perda de pacotes no segmento de acesso subiu para 2,3% (limite aceitável: 0,5%).\nAfeta principalmente clientes residenciais nos bairros Jardim Paulista e Nova Ribeirânia.',
-    causes: JSON.stringify([
-      'Interferência eletromagnética próxima ao armário SW-RP-AC-11',
-      'Cabos desconectados parcialmente reportados por técnico de campo',
-    ]),
-    actions: JSON.stringify([
-      { text: 'Inspecionar fisicamente o armário SW-RP-AC-11', done: true },
-      { text: 'Verificar erros de interface nos logs do SW-RP-AC-12', done: false },
-      { text: 'Isolar segmento afetado e redirecionar tráfego para rota alternativa', done: false },
-    ]),
-    confirmed: null,
   },
   {
-    type: 'bandwidth_exceeded',
-    title: 'Saturação de uplink no DSLAM de Santo André',
-    area: 'Santo André',
-    equipments: JSON.stringify(['DSLAM-SA-01', 'RTR-SA-BD-02']),
-    risk: 'medium',
-    accuracy: 71,
-    predicted_for: hoursFromNow(10),
-    status: 'in_analysis',
-    context:
-      'Uplink do DSLAM-SA-01 atingiu 88% de utilização durante o horário de pico de ontem.\nTendência de crescimento de 5% ao mês nos últimos 3 meses.',
-    causes: JSON.stringify([
-      'Crescimento orgânico de assinantes na região sem expansão de infraestrutura',
+    id_falha: 'INC-2026005',
+    cliente_id: 'CLI-1004',
+    cliente_nome: 'Fernanda Oliveira',
+    cliente_banda: '200 Mbps',
+    dispositivo_id: 'DEV-504',
+    dispositivo_nome: 'ONT Huawei HG8245H',
+    dispositivo_tipo_conexao: 'Fibra FTTH',
+    dispositivo_no_pai: 'OLT-NORTE-03',
+    falha_categoria: 'Degradação óptica',
+    falha_descricao: 'Degradação progressiva do sinal óptico',
+    falha_localizacao: 'Porto Alegre, RS - Bom Fim',
+    perda_pacotes_pct: 8.3,
+    latencia_ms: 62,
+    falha_risco: 'Médio',
+    falha_inicio: '2026-10-03 16:20:00',
+    falha_resolucao: '2026-10-03 18:05:00',
+    solucao_aplicada: 'Limpeza de conectores e re-fusão do splitter',
+    incidente_status: 'Resolvido',
+    acao_automatizada: 'FALSE',
+    contexto: 'Sinal óptico com degradação progressiva detectada por monitoramento SNMP. Potência recebida caindo de -18 dBm para -26 dBm ao longo de 6 horas. Equipe de campo identificou splitter com contaminação.',
+    causas: JSON.stringify(['Contaminação por poeira no splitter óptico', 'Umidade na caixa de emenda em via pública']),
+    acoes: JSON.stringify([
+      { text: 'Inspecionar e limpar conectores no splitter', done: true },
+      { text: 'Re-fusionar fibra no ponto de emenda', done: true },
     ]),
-    actions: JSON.stringify([
-      { text: 'Solicitar aprovação de orçamento para upgrade do uplink', done: true },
-      { text: 'Implementar limitação temporária de banda para serviços P2P', done: false },
-    ]),
-    confirmed: null,
-  },
-
-  // --- Alertas MONITORANDO ---
-  {
-    type: 'congestion',
-    title: 'Congestionamento em recovery no nó de São Bernardo',
-    area: 'São Bernardo do Campo',
-    equipments: JSON.stringify(['RTR-SBC-01', 'SW-SBC-AGG-03']),
-    risk: 'low',
-    accuracy: 88,
-    predicted_for: hoursAgo(2),
-    status: 'monitoring',
-    context:
-      'Congestionamento foi detectado e ação preventiva foi executada com sucesso.\nTráfego redistribuído para rota alternativa. Monitoramento ativo por 24h.',
-    causes: JSON.stringify([
-      'Evento esportivo na Arena MorumBIS aumentou o tráfego 40% acima do normal',
-    ]),
-    actions: JSON.stringify([
-      { text: 'Redirecionar 30% do tráfego para o link secundário', done: true },
-      { text: 'Notificar NOC sobre a redistribuição', done: true },
-      { text: 'Monitorar por 24h e reverter se o tráfego normalizar', done: false },
-    ]),
-    confirmed: null,
-  },
-
-  // --- Alertas RESOLVIDOS ---
-  {
-    type: 'equipment_failure',
-    title: 'Falha prevista no switch de distribuição de Guarulhos',
-    area: 'Guarulhos',
-    equipments: JSON.stringify(['SW-GRU-DIST-05']),
-    risk: 'high',
-    accuracy: 95,
-    predicted_for: hoursAgo(8),
-    status: 'resolved',
-    context:
-      'Modelo de ML identificou padrão de falha no SW-GRU-DIST-05 com alta confiança.\nEquipe substituiu o equipamento durante janela de manutenção antes da falha ocorrer.',
-    causes: JSON.stringify([
-      'Equipamento com mais de 7 anos de operação (vida útil recomendada: 5 anos)',
-      'Falhas intermitentes de memória registradas nos logs de SNMP',
-    ]),
-    actions: JSON.stringify([
-      { text: 'Agendar substituição do SW-GRU-DIST-05 na janela de manutenção', done: true },
-      { text: 'Instalar novo equipamento e migrar configuração', done: true },
-      { text: 'Validar conectividade após substituição', done: true },
-    ]),
-    confirmed: true,
   },
   {
-    type: 'packet_loss',
-    title: 'Perda de pacotes no backbone Norte-Sul resolvida',
-    area: 'São Paulo - Centro',
-    equipments: JSON.stringify(['RTR-SP-BB-01', 'RTR-SP-BB-02']),
-    risk: 'medium',
-    accuracy: 76,
-    predicted_for: hoursAgo(24),
-    status: 'resolved',
-    context:
-      'Taxa de perda de pacotes foi corrigida após atualização de firmware e ajuste de configuração de fila.',
-    causes: JSON.stringify([
-      'Bug no firmware versão 4.2.1 causava descarte incorreto de pacotes em horário de pico',
+    id_falha: 'INC-2026006',
+    cliente_id: 'CLI-1005',
+    cliente_nome: 'Gabriel Martins',
+    cliente_banda: '500 Mbps',
+    dispositivo_id: 'DEV-505',
+    dispositivo_nome: 'Switch Cisco SG350',
+    dispositivo_tipo_conexao: 'Fibra FTTH',
+    dispositivo_no_pai: 'AGGREG-CENTRO-01',
+    falha_categoria: 'Congestionamento',
+    falha_descricao: 'Congestionamento no switch de agregação',
+    falha_localizacao: 'São Leopoldo, RS - Centro',
+    perda_pacotes_pct: 3.8,
+    latencia_ms: 95,
+    falha_risco: 'Baixo',
+    falha_inicio: '2026-10-04 19:00:00',
+    falha_resolucao: '2026-10-04 20:30:00',
+    solucao_aplicada: 'Redistribuição de carga entre uplinks',
+    incidente_status: 'Resolvido',
+    acao_automatizada: 'TRUE',
+    contexto: 'Congestionamento detectado no switch AGGREG-CENTRO-01 durante horário de pico noturno. Utilização de uplink chegou a 94%. Redistribuição automática de carga entre uplinks redundantes aliviou o problema.',
+    causas: JSON.stringify(['Crescimento orgânico de tráfego sem expansão de uplink', 'Ausência de políticas de QoS para priorização']),
+    acoes: JSON.stringify([
+      { text: 'Ativar redistribuição de carga automática', done: true },
+      { text: 'Solicitar upgrade de uplink para 10 Gbps', done: false },
     ]),
-    actions: JSON.stringify([
-      { text: 'Atualizar firmware para versão 4.2.2 em ambos os roteadores', done: true },
-      { text: 'Ajustar tamanho do buffer de saída para 512KB', done: true },
-    ]),
-    confirmed: true,
-  },
-
-  // --- Alertas FALSO POSITIVO ---
-  {
-    type: 'latency',
-    title: 'Latência elevada prevista no link de Sorocaba',
-    area: 'Sorocaba',
-    equipments: JSON.stringify(['RTR-SOR-01']),
-    risk: 'low',
-    accuracy: 70,
-    predicted_for: hoursAgo(6),
-    status: 'false_positive',
-    context:
-      'Modelo previu latência elevada, mas análise manual indicou que o aumento era esperado — manutenção programada no roteador de peering upstream foi executada no período.',
-    causes: JSON.stringify(['Manutenção programada de peering upstream (não uma anomalia)']),
-    actions: JSON.stringify([
-      { text: 'Verificar janela de manutenção dos peers upstream', done: true },
-    ]),
-    confirmed: false,
-  },
-
-  // --- Alertas EXPIRADOS ---
-  {
-    type: 'other',
-    title: 'Anomalia de tráfego detectada na rede de acesso de Osasco',
-    area: 'Osasco',
-    equipments: JSON.stringify(['OLT-OSC-02', 'SW-OSC-AC-07']),
-    risk: 'low',
-    accuracy: 72,
-    predicted_for: hoursAgo(5),
-    status: 'expired',
-    context:
-      'Anomalia de tráfego detectada, mas o horário previsto passou sem ocorrência confirmada.\nAlerta expirado automaticamente pelo sistema.',
-    causes: JSON.stringify(['Padrão anômalo de tráfego no horário de madrugada']),
-    actions: JSON.stringify([
-      { text: 'Verificar logs do OLT-OSC-02 no período previsto', done: false },
-    ]),
-    confirmed: null,
-  },
-
-  // --- Mais alertas para variedade ---
-  {
-    type: 'bandwidth_exceeded',
-    title: 'Risco de saturação no link de interconexão de Bauru',
-    area: 'Bauru',
-    equipments: JSON.stringify(['RTR-BAU-01', 'RTR-BAU-02']),
-    risk: 'medium',
-    accuracy: 80,
-    predicted_for: hoursFromNow(18),
-    status: 'new',
-    context:
-      'Crescimento de 15% no tráfego de dados nos últimos 7 dias.\nLink de interconexão de 1Gbps deve atingir 90% no fim de semana.',
-    causes: JSON.stringify([
-      'Aumento de assinantes de banda larga na região',
-      'Lançamento de serviço de streaming local sem preparação de infraestrutura',
-    ]),
-    actions: JSON.stringify([
-      { text: 'Analisar perfil de tráfego para identificar top talkers', done: false },
-      { text: 'Solicitar upgrade de link para 10Gbps', done: false },
-      { text: 'Considerar cache local para reduzir tráfego de CDN', done: false },
-    ]),
-    confirmed: null,
   },
   {
-    type: 'congestion',
-    title: 'Previsão de congestionamento no PON de São José dos Campos',
-    area: 'São José dos Campos',
-    equipments: JSON.stringify(['OLT-SJC-01', 'OLT-SJC-02']),
-    risk: 'low',
-    accuracy: 70,
-    predicted_for: hoursFromNow(36),
-    status: 'new',
-    context:
-      'Análise histórica indica que eventos no Parque Tecnológico de SJC causam picos de tráfego.\nEvento de 3 dias iniciará na próxima semana com expectativa de 5.000 participantes.',
-    causes: JSON.stringify([
-      'Evento de grande porte previsto para a região',
-      'Alta densidade de dispositivos móveis concentrados no mesmo setor',
+    id_falha: 'INC-2026007',
+    cliente_id: 'CLI-1006',
+    cliente_nome: 'Helena Costa',
+    cliente_banda: '1 Gbps',
+    dispositivo_id: 'DEV-506',
+    dispositivo_nome: 'Router MikroTik RB4011',
+    dispositivo_tipo_conexao: 'Fibra FTTH',
+    dispositivo_no_pai: 'OLT-CENTRAL-01',
+    falha_categoria: 'Falha de autenticação',
+    falha_descricao: 'Falha de autenticação PPPoE repetida',
+    falha_localizacao: 'Porto Alegre, RS - Moinhos de Vento',
+    perda_pacotes_pct: null,
+    latencia_ms: null,
+    falha_risco: 'Alto',
+    falha_inicio: '2026-10-02 07:45:00',
+    falha_resolucao: '2026-10-02 08:30:00',
+    solucao_aplicada: 'Reset de sessão PPPoE e atualização de credenciais',
+    incidente_status: 'Resolvido',
+    acao_automatizada: 'FALSE',
+    contexto: 'Falhas de autenticação PPPoE detectadas no concentrador de acesso. 12 tentativas falhas em 10 minutos para o CLI-1006. Logs indicam senha expirada no RADIUS. Credenciais atualizadas manualmente.',
+    causas: JSON.stringify(['Senha PPPoE expirada no servidor RADIUS', 'Ausência de notificação automática de expiração de credenciais']),
+    acoes: JSON.stringify([
+      { text: 'Atualizar credenciais PPPoE no RADIUS', done: true },
+      { text: 'Implementar alerta de expiração de senha com 7 dias de antecedência', done: false },
     ]),
-    actions: JSON.stringify([
-      { text: 'Alocar capacidade adicional nos OLTs de SJC', done: false },
-      { text: 'Coordenar com equipe de eventos para estimar pico de tráfego', done: false },
-    ]),
-    confirmed: null,
   },
   {
-    type: 'equipment_failure',
-    title: 'Degradação detectada em fonte de alimentação — RTR-SP-ZS-04',
-    area: 'São Paulo - Zona Sul',
-    equipments: JSON.stringify(['RTR-SP-ZS-04']),
-    risk: 'medium',
-    accuracy: 84,
-    predicted_for: hoursFromNow(48),
-    status: 'monitoring',
-    context:
-      'Sensores de SNMP indicam tensão de saída variando fora dos limites (±5% vs. tolerância de ±2%).\nComportamento típico de capacitores envelhecidos na fonte de alimentação.',
-    causes: JSON.stringify([
-      'Fonte de alimentação com sinais de desgaste após 4 anos de operação contínua',
-      'Histórico de quedas de energia na região que aceleram desgaste de componentes',
+    id_falha: 'INC-2026008',
+    cliente_id: 'CLI-1007',
+    cliente_nome: 'Igor Nascimento',
+    cliente_banda: '300 Mbps',
+    dispositivo_id: 'DEV-507',
+    dispositivo_nome: 'Rádio Ubiquiti AirMax',
+    dispositivo_tipo_conexao: 'Rádio',
+    dispositivo_no_pai: 'TOWER-NORTE-02',
+    falha_categoria: 'Interferência externa',
+    falha_descricao: 'Interferência de RF no link de rádio',
+    falha_localizacao: 'Cachoeirinha, RS - Industrial',
+    perda_pacotes_pct: 22.4,
+    latencia_ms: 210,
+    falha_risco: 'Alto',
+    falha_inicio: '2026-10-06 13:00:00',
+    falha_resolucao: null,
+    solucao_aplicada: null,
+    incidente_status: 'Aberto',
+    acao_automatizada: 'FALSE',
+    contexto: 'Interferência de RF detectada no link Ubiquiti AirMax operando em 5.8 GHz. SNR caiu de 28 dB para 11 dB. Possível fonte de interferência identificada em obra próxima com equipamentos elétricos de alta potência.',
+    causas: JSON.stringify(['Fonte de interferência eletromagnética em obra industrial próxima', 'Canal de rádio sem mudança adaptativa de frequência']),
+    acoes: JSON.stringify([
+      { text: 'Mudar canal de operação para frequência menos congestionada', done: false },
+      { text: 'Instalar filtro de RF no equipamento', done: false },
+      { text: 'Acionar fiscalização da ANATEL sobre interferência', done: false },
     ]),
-    actions: JSON.stringify([
-      { text: 'Adquirir fonte de alimentação reserva (modelo compatível)', done: true },
-      { text: 'Agendar substituição na próxima janela de manutenção', done: false },
-      { text: 'Monitorar logs de SNMP a cada 6h até a substituição', done: false },
+  },
+  {
+    id_falha: 'INC-2026009',
+    cliente_id: 'CLI-1008',
+    cliente_nome: 'Juliana Pereira',
+    cliente_banda: '500 Mbps',
+    dispositivo_id: 'DEV-508',
+    dispositivo_nome: 'ONU Intelbras 1200R',
+    dispositivo_tipo_conexao: 'Fibra FTTH',
+    dispositivo_no_pai: 'OLT-SUL-04',
+    falha_categoria: 'Queda de energia',
+    falha_descricao: 'Queda de energia no nó de distribuição',
+    falha_localizacao: 'Gravataí, RS - Morada dos Campos',
+    perda_pacotes_pct: 100,
+    latencia_ms: null,
+    falha_risco: 'Crítico',
+    falha_inicio: '2026-10-07 03:20:00',
+    falha_resolucao: '2026-10-07 04:50:00',
+    solucao_aplicada: 'Acionamento de gerador e restabelecimento de energia pela concessionária',
+    incidente_status: 'Resolvido',
+    acao_automatizada: 'FALSE',
+    contexto: 'Queda de energia detectada no nó OLT-SUL-04 às 03:20. Nobreak entrou em operação por 48 minutos. Gerador acionado às 03:40. Energia da concessionária restabelecida às 04:50. 180 assinantes afetados.',
+    causas: JSON.stringify(['Queda de energia da concessionária por temporal', 'Bateria do nobreak com capacidade reduzida (72% da carga nominal)']),
+    acoes: JSON.stringify([
+      { text: 'Acionar gerador de emergência', done: true },
+      { text: 'Notificar NOC e equipe de campo', done: true },
+      { text: 'Agendar revisão das baterias do nobreak', done: false },
     ]),
-    confirmed: null,
+  },
+  {
+    id_falha: 'INC-2026010',
+    cliente_id: 'CLI-1009',
+    cliente_nome: 'Klaus Weber',
+    cliente_banda: '200 Mbps',
+    dispositivo_id: 'DEV-509',
+    dispositivo_nome: 'Modem Sagemcom F@ST 3890',
+    dispositivo_tipo_conexao: 'Cabo Coaxial',
+    dispositivo_no_pai: 'CMTS-NORTE-01',
+    falha_categoria: 'Banda excedida',
+    falha_descricao: 'Utilização de banda acima de 95% do contratado',
+    falha_localizacao: 'Alvorada, RS - Centro',
+    perda_pacotes_pct: 0.8,
+    latencia_ms: 55,
+    falha_risco: 'Médio',
+    falha_inicio: '2026-10-07 20:00:00',
+    falha_resolucao: null,
+    solucao_aplicada: null,
+    incidente_status: 'Aberto',
+    acao_automatizada: 'TRUE',
+    contexto: 'Monitoramento automático detectou uso de banda acima de 95% no contrato de 200 Mbps. Padrão de consumo sugere streaming 4K simultâneo em múltiplos dispositivos. Agente notificou o cliente via portal e sugeriu upgrade de plano.',
+    causas: JSON.stringify(['Múltiplos dispositivos com streaming simultâneo em 4K', 'Plano contratado insuficiente para o perfil atual de uso']),
+    acoes: JSON.stringify([
+      { text: 'Notificar cliente sobre consumo elevado', done: true },
+      { text: 'Oferecer upgrade para plano de 500 Mbps', done: false },
+    ]),
   },
 ];
 
@@ -325,69 +295,76 @@ function seed() {
   console.log(`\n🌱 Iniciando seed do banco de dados...`);
 
   if (!keepExisting) {
-    // Apaga alertas existentes para reiniciar com dados limpos
-    const deleted = db.prepare('DELETE FROM alerts').run();
-    // Reseta o auto-increment para que os IDs comecem do 1
-    db.prepare("DELETE FROM sqlite_sequence WHERE name = 'alerts'").run();
-    console.log(`  ✓ ${deleted.changes} alertas removidos.`);
+    const deleted = db.prepare('DELETE FROM logs_informativos').run();
+    console.log(`  ✓ ${deleted.changes} incidentes removidos.`);
   } else {
-    console.log(`  ℹ️ Flag --keep ativa: alertas existentes mantidos.`);
+    console.log(`  ℹ️ Flag --keep ativa: incidentes existentes mantidos.`);
   }
 
-  const now = new Date().toISOString();
   const insert = db.prepare(
-    `INSERT INTO alerts
-       (type, title, area, equipments, risk, accuracy, predicted_for,
-        status, context, causes, actions, confirmed, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR REPLACE INTO logs_informativos
+       (id_falha, cliente_id, cliente_nome, cliente_banda,
+        dispositivo_id, dispositivo_nome, dispositivo_tipo_conexao, dispositivo_no_pai,
+        falha_categoria, falha_descricao, falha_localizacao,
+        perda_pacotes_pct, latencia_ms, falha_risco,
+        falha_inicio, falha_resolucao, solucao_aplicada,
+        incidente_status, acao_automatizada,
+        contexto, causas, acoes,
+        created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
 
-  // Insere todos os alertas em uma transação (mais rápido e atômico)
-  const insertAll = db.transaction((alerts) => {
-    for (const a of alerts) {
-      // SQLite não aceita boolean — converte confirmed para 0/1/null
-      const confirmedDb = a.confirmed === null ? null : a.confirmed ? 1 : 0;
+  const insertAll = db.transaction((incidents) => {
+    for (const inc of incidents) {
       insert.run(
-        a.type,
-        a.title,
-        a.area,
-        a.equipments,
-        a.risk,
-        a.accuracy,
-        a.predicted_for,
-        a.status,
-        a.context,
-        a.causes,
-        a.actions,
-        confirmedDb,
+        inc.id_falha,
+        inc.cliente_id,
+        inc.cliente_nome ?? null,
+        inc.cliente_banda ?? null,
+        inc.dispositivo_id ?? null,
+        inc.dispositivo_nome ?? null,
+        inc.dispositivo_tipo_conexao ?? null,
+        inc.dispositivo_no_pai ?? null,
+        inc.falha_categoria ?? null,
+        inc.falha_descricao ?? null,
+        inc.falha_localizacao ?? null,
+        inc.perda_pacotes_pct ?? null,
+        inc.latencia_ms ?? null,
+        inc.falha_risco ?? null,
+        inc.falha_inicio ?? null,
+        inc.falha_resolucao ?? null,
+        inc.solucao_aplicada ?? null,
+        inc.incidente_status,
+        inc.acao_automatizada,
+        inc.contexto,
+        inc.causas,
+        inc.acoes,
         now,
         now,
       );
     }
   });
 
-  insertAll(seedAlerts);
+  insertAll(seedIncidents);
+  console.log(`  ✓ ${seedIncidents.length} incidentes inseridos com sucesso.`);
 
-  console.log(`  ✓ ${seedAlerts.length} alertas inseridos com sucesso.`);
-
-  // Exibe resumo dos dados inseridos
   const summary = db
     .prepare(
-      `SELECT status, COUNT(*) as count FROM alerts
-       WHERE deleted_at IS NULL GROUP BY status ORDER BY status`,
+      `SELECT incidente_status, COUNT(*) as count FROM logs_informativos
+       WHERE deleted_at IS NULL GROUP BY incidente_status ORDER BY incidente_status`,
     )
     .all();
   console.log('\n  Resumo por status:');
-  summary.forEach((r) => console.log(`    ${r.status}: ${r.count}`));
+  summary.forEach((r) => console.log(`    ${r.incidente_status}: ${r.count}`));
 
   const riskSummary = db
     .prepare(
-      `SELECT risk, COUNT(*) as count FROM alerts
-       WHERE deleted_at IS NULL GROUP BY risk ORDER BY risk`,
+      `SELECT falha_risco, COUNT(*) as count FROM logs_informativos
+       WHERE deleted_at IS NULL GROUP BY falha_risco ORDER BY falha_risco`,
     )
     .all();
   console.log('\n  Resumo por risco:');
-  riskSummary.forEach((r) => console.log(`    ${r.risk}: ${r.count}`));
+  riskSummary.forEach((r) => console.log(`    ${r.falha_risco}: ${r.count}`));
 
   console.log('\n✅ Seed concluído!\n');
 }

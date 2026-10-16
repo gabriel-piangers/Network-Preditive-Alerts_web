@@ -9,17 +9,22 @@
   white-space: nowrap;
 }
 
-.risk-badge--high {
-  color: var(--color-risk-high);
-  background-color: var(--color-risk-high-bg);
+.risk-badge--critico {
+  color: var(--color-risk-critico);
+  background-color: var(--color-risk-critico-bg);
 }
 
-.risk-badge--medium {
-  color: var(--color-risk-medium);
-  background-color: var(--color-risk-medium-bg);
+.risk-badge--alto {
+  color: var(--color-risk-alto);
+  background-color: var(--color-risk-alto-bg);
 }
 
-.risk-badge--low {
-  color: var(--color-risk-low);
-  background-color: var(--color-risk-low-bg);
+.risk-badge--medio {
+  color: var(--color-risk-medio);
+  background-color: var(--color-risk-medio-bg);
+}
+
+.risk-badge--baixo {
+  color: var(--color-risk-baixo);
+  background-color: var(--color-risk-baixo-bg);
 }

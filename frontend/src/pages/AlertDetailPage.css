@@ -11,9 +11,9 @@
 /* ── Toast de confirmação de arquivamento ─────────────────────────── */
 
 .alert-detail-page__archive-toast {
-  background-color: var(--color-risk-low-bg);
-  color: var(--color-risk-low);
-  border: 1px solid var(--color-risk-low);
+  background-color: var(--color-risk-baixo-bg);
+  color: var(--color-risk-baixo);
+  border: 1px solid var(--color-risk-baixo);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-5);
   font-size: var(--font-size-sm);
@@ -114,11 +114,7 @@
   flex-wrap: wrap;
 }
 
-.info-grid__value--past {
-  color: var(--color-feedback-error);
-}
-
-.info-grid__relative {
+.info-grid__sub {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }

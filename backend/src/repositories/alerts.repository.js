@@ -1,76 +1,56 @@
-// Repositório de alertas: TODO o SQL fica aqui.
+// Repositório de incidentes: TODO o SQL fica aqui.
 // Usa prepared statements do better-sqlite3 — nunca interpola valores do usuário nas queries.
 // Funções de mapeamento convertem linha do banco <-> objeto da API.
 
 import db from '../db/connection.js';
 
-// Statuses considerados "ativos" — usados na expiração automática e no summary
-const ACTIVE_STATUSES = ['new', 'in_analysis', 'monitoring'];
+// Status considerados "ativos" — usados no summary
+const ACTIVE_STATUSES = ['Aberto', 'Em Andamento'];
 
 // Mapeamento de chaves permitidas para ordenação (lista branca contra SQL injection)
 const SORT_COLUMN_MAP = {
-  risk: "CASE risk WHEN 'high' THEN 3 WHEN 'medium' THEN 2 ELSE 1 END",
-  predicted_for: 'predicted_for',
-  accuracy: 'accuracy',
-  status: 'status',
-  title: 'title',
-  area: 'area',
+  falha_risco: `CASE falha_risco WHEN 'Crítico' THEN 4 WHEN 'Alto' THEN 3 WHEN 'Médio' THEN 2 ELSE 1 END`,
+  falha_inicio: 'falha_inicio',
+  incidente_status: 'incidente_status',
+  falha_categoria: 'falha_categoria',
+  falha_localizacao: 'falha_localizacao',
+  cliente_nome: 'cliente_nome',
   created_at: 'created_at',
   updated_at: 'updated_at',
 };
 
 // Converte uma linha do banco para o formato esperado pela API.
-// Remove deleted_at e converte os campos JSON e confirmed.
-function rowToAlert(row) {
+function rowToIncident(row) {
   if (!row) return null;
-  // deleted_at não deve ser exposto na API — removido da resposta
+  // deleted_at não deve ser exposto na API
   // eslint-disable-next-line no-unused-vars
   const { deleted_at, ...rest } = row;
   return {
     ...rest,
-    equipments: JSON.parse(row.equipments),
-    causes: JSON.parse(row.causes),
-    actions: JSON.parse(row.actions),
-    // SQLite armazena confirmed como 0, 1 ou NULL; API usa false, true ou null
-    confirmed: row.confirmed === null ? null : Boolean(row.confirmed),
+    causas: JSON.parse(row.causas || '[]'),
+    acoes: JSON.parse(row.acoes || '[]'),
+    acao_automatizada: row.acao_automatizada === 'TRUE' || row.acao_automatizada === true,
+    perda_pacotes_pct: row.perda_pacotes_pct ?? null,
+    latencia_ms: row.latencia_ms ?? null,
   };
 }
 
-// Marca como "expired" os alertas ativos cujo predicted_for passou há mais de 30 minutos.
-// Chamado antes de qualquer leitura para manter os status atualizados.
-export function expireStaleAlerts() {
-  const threshold = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-  const placeholders = ACTIVE_STATUSES.map(() => '?').join(', ');
-  const now = new Date().toISOString();
-  db.prepare(
-    `UPDATE alerts
-     SET status = 'expired', updated_at = ?
-     WHERE status IN (${placeholders})
-       AND predicted_for < ?
-       AND deleted_at IS NULL`,
-  ).run(now, ...ACTIVE_STATUSES, threshold);
-}
-
-// Retorna um único alerta pelo id (apenas não-arquivados).
+// Retorna um único incidente pelo id_falha (apenas não-arquivados).
 export function findById(id) {
-  expireStaleAlerts();
   const row = db
-    .prepare('SELECT * FROM alerts WHERE id = ? AND deleted_at IS NULL')
+    .prepare('SELECT * FROM logs_informativos WHERE id_falha = ? AND deleted_at IS NULL')
     .get(id);
-  return rowToAlert(row);
+  return rowToIncident(row);
 }
 
-// Lista alertas com filtros, ordenação e paginação.
-// Retorna { data: Alert[], meta: { page, page_size, total, total_pages } }.
+// Lista incidentes com filtros, ordenação e paginação.
+// Retorna { data: Incident[], meta: { page, page_size, total, total_pages } }.
 export function findAll(filters = {}) {
-  expireStaleAlerts();
-
   const {
-    status,
-    risk,
-    type,
-    area,
-    min_accuracy,
+    incidente_status,
+    falha_risco,
+    falha_categoria,
+    falha_localizacao,
     sort,
     order,
     page = 1,
@@ -80,54 +60,48 @@ export function findAll(filters = {}) {
   const conditions = ['deleted_at IS NULL'];
   const params = [];
 
-  if (status && status.length > 0) {
-    conditions.push(`status IN (${status.map(() => '?').join(', ')})`);
-    params.push(...status);
+  if (incidente_status && incidente_status.length > 0) {
+    conditions.push(`incidente_status IN (${incidente_status.map(() => '?').join(', ')})`);
+    params.push(...incidente_status);
   }
-  if (risk && risk.length > 0) {
-    conditions.push(`risk IN (${risk.map(() => '?').join(', ')})`);
-    params.push(...risk);
+  if (falha_risco && falha_risco.length > 0) {
+    conditions.push(`falha_risco IN (${falha_risco.map(() => '?').join(', ')})`);
+    params.push(...falha_risco);
   }
-  if (type && type.length > 0) {
-    conditions.push(`type IN (${type.map(() => '?').join(', ')})`);
-    params.push(...type);
+  if (falha_categoria && falha_categoria.length > 0) {
+    conditions.push(`falha_categoria IN (${falha_categoria.map(() => '?').join(', ')})`);
+    params.push(...falha_categoria);
   }
-  if (area && area.length > 0) {
-    conditions.push(`area IN (${area.map(() => '?').join(', ')})`);
-    params.push(...area);
-  }
-  if (min_accuracy !== undefined) {
-    conditions.push('accuracy >= ?');
-    params.push(min_accuracy);
+  if (falha_localizacao) {
+    conditions.push('falha_localizacao LIKE ?');
+    params.push(`%${falha_localizacao}%`);
   }
 
   const where = `WHERE ${conditions.join(' AND ')}`;
 
-  // Determina ordenação: se sort foi fornecido, usa coluna + desempate por id DESC;
-  // se não, usa risco ↓ + predicted_for ↑ (ordenação padrão)
+  // Determina ordenação
   let orderClause;
-  if (sort) {
+  if (sort && SORT_COLUMN_MAP[sort]) {
     const col = SORT_COLUMN_MAP[sort];
-    // Direção padrão por campo (seção 6.4)
-    const defaultDesc = ['risk', 'accuracy', 'created_at', 'updated_at'];
-    const dir = order || (defaultDesc.includes(sort) ? 'DESC' : 'ASC');
-    orderClause = `ORDER BY ${col} ${dir}, id DESC`;
+    const defaultDesc = ['falha_risco', 'created_at', 'updated_at'];
+    const dir = order?.toUpperCase() === 'ASC' ? 'ASC' : (order?.toUpperCase() === 'DESC' ? 'DESC' : (defaultDesc.includes(sort) ? 'DESC' : 'ASC'));
+    orderClause = `ORDER BY ${col} ${dir}, id_falha DESC`;
   } else {
-    orderClause = `ORDER BY ${SORT_COLUMN_MAP.risk} DESC, predicted_for ASC`;
+    orderClause = `ORDER BY ${SORT_COLUMN_MAP.falha_risco} DESC, falha_inicio ASC`;
   }
 
   // Contagem total para paginação
   const total = db
-    .prepare(`SELECT COUNT(*) as count FROM alerts ${where}`)
+    .prepare(`SELECT COUNT(*) as count FROM logs_informativos ${where}`)
     .get(...params).count;
 
   const offset = (page - 1) * page_size;
   const rows = db
-    .prepare(`SELECT * FROM alerts ${where} ${orderClause} LIMIT ? OFFSET ?`)
+    .prepare(`SELECT * FROM logs_informativos ${where} ${orderClause} LIMIT ? OFFSET ?`)
     .all(...params, page_size, offset);
 
   return {
-    data: rows.map(rowToAlert),
+    data: rows.map(rowToIncident),
     meta: {
       page,
       page_size,
@@ -139,105 +113,132 @@ export function findAll(filters = {}) {
 
 // Retorna contagens para a visão geral (summary).
 export function getSummary() {
-  expireStaleAlerts();
-
   const activePlaceholders = ACTIVE_STATUSES.map(() => '?').join(', ');
 
-  // Contagem de alertas ativos totais
+  // Contagem de incidentes ativos totais
   const { total_active } = db
     .prepare(
-      `SELECT COUNT(*) as total_active FROM alerts
-       WHERE status IN (${activePlaceholders}) AND deleted_at IS NULL`,
+      `SELECT COUNT(*) as total_active FROM logs_informativos
+       WHERE incidente_status IN (${activePlaceholders}) AND deleted_at IS NULL`,
     )
     .get(...ACTIVE_STATUSES);
 
-  // Contagem de alertas novos
-  const { new_count } = db
+  // Contagem de incidentes novos (Aberto)
+  const { abertos } = db
     .prepare(
-      `SELECT COUNT(*) as new_count FROM alerts
-       WHERE status = 'new' AND deleted_at IS NULL`,
+      `SELECT COUNT(*) as abertos FROM logs_informativos
+       WHERE incidente_status = 'Aberto' AND deleted_at IS NULL`,
     )
     .get();
 
   // Contagem por risco (apenas ativos)
   const riskRows = db
     .prepare(
-      `SELECT risk, COUNT(*) as count FROM alerts
-       WHERE status IN (${activePlaceholders}) AND deleted_at IS NULL
-       GROUP BY risk`,
+      `SELECT falha_risco, COUNT(*) as count FROM logs_informativos
+       WHERE incidente_status IN (${activePlaceholders}) AND deleted_at IS NULL
+       GROUP BY falha_risco`,
     )
     .all(...ACTIVE_STATUSES);
-  const by_risk = { high: 0, medium: 0, low: 0 };
-  riskRows.forEach((r) => (by_risk[r.risk] = r.count));
+  const by_risco = { Crítico: 0, Alto: 0, Médio: 0, Baixo: 0 };
+  riskRows.forEach((r) => {
+    if (r.falha_risco in by_risco) by_risco[r.falha_risco] = r.count;
+  });
 
   // Contagem por status (todos não-arquivados)
   const statusRows = db
     .prepare(
-      `SELECT status, COUNT(*) as count FROM alerts
+      `SELECT incidente_status, COUNT(*) as count FROM logs_informativos
        WHERE deleted_at IS NULL
-       GROUP BY status`,
+       GROUP BY incidente_status`,
     )
     .all();
-  const by_status = {
-    new: 0,
-    in_analysis: 0,
-    monitoring: 0,
-    resolved: 0,
-    false_positive: 0,
-    expired: 0,
-  };
-  statusRows.forEach((r) => (by_status[r.status] = r.count));
+  const by_status = { Aberto: 0, 'Em Andamento': 0, Resolvido: 0 };
+  statusRows.forEach((r) => {
+    if (r.incidente_status in by_status) by_status[r.incidente_status] = r.count;
+  });
 
-  // Áreas distintas (não-arquivadas, ordem alfabética)
-  const areaRows = db
+  // Localizações distintas (não-arquivadas, ordem alfabética)
+  const locRows = db
     .prepare(
-      `SELECT DISTINCT area FROM alerts
-       WHERE deleted_at IS NULL
-       ORDER BY area ASC`,
+      `SELECT DISTINCT falha_localizacao FROM logs_informativos
+       WHERE deleted_at IS NULL AND falha_localizacao IS NOT NULL
+       ORDER BY falha_localizacao ASC`,
     )
     .all();
-  const areas = areaRows.map((r) => r.area);
+  const localizacoes = locRows.map((r) => r.falha_localizacao);
 
-  return { total_active, new_count, by_risk, by_status, areas };
+  // Categorias distintas
+  const catRows = db
+    .prepare(
+      `SELECT DISTINCT falha_categoria FROM logs_informativos
+       WHERE deleted_at IS NULL AND falha_categoria IS NOT NULL
+       ORDER BY falha_categoria ASC`,
+    )
+    .all();
+  const categorias = catRows.map((r) => r.falha_categoria);
+
+  return { total_active, abertos, by_risco, by_status, localizacoes, categorias };
 }
 
-// Insere um novo alerta e retorna o objeto criado.
+// Insere um novo incidente e retorna o objeto criado.
 export function create(data) {
   const now = new Date().toISOString();
   const stmt = db.prepare(
-    `INSERT INTO alerts
-       (type, title, area, equipments, risk, accuracy, predicted_for,
-        status, context, causes, actions, confirmed, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO logs_informativos
+       (id_falha, cliente_id, cliente_nome, cliente_banda,
+        dispositivo_id, dispositivo_nome, dispositivo_tipo_conexao, dispositivo_no_pai,
+        falha_categoria, falha_descricao, falha_localizacao,
+        perda_pacotes_pct, latencia_ms, falha_risco,
+        falha_inicio, falha_resolucao, solucao_aplicada,
+        incidente_status, acao_automatizada,
+        contexto, causas, acoes,
+        created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
-  const result = stmt.run(
-    data.type,
-    data.title,
-    data.area,
-    JSON.stringify(data.equipments),
-    data.risk,
-    data.accuracy,
-    data.predicted_for,
-    data.status || 'new',
-    data.context,
-    JSON.stringify(data.causes),
-    JSON.stringify(data.actions),
-    data.confirmed === undefined ? null : data.confirmed === true ? 1 : 0,
+  stmt.run(
+    data.id_falha,
+    data.cliente_id,
+    data.cliente_nome ?? null,
+    data.cliente_banda ?? null,
+    data.dispositivo_id ?? null,
+    data.dispositivo_nome ?? null,
+    data.dispositivo_tipo_conexao ?? null,
+    data.dispositivo_no_pai ?? null,
+    data.falha_categoria ?? null,
+    data.falha_descricao ?? null,
+    data.falha_localizacao ?? null,
+    data.perda_pacotes_pct ?? null,
+    data.latencia_ms ?? null,
+    data.falha_risco ?? null,
+    data.falha_inicio ?? null,
+    data.falha_resolucao ?? null,
+    data.solucao_aplicada ?? null,
+    data.incidente_status ?? 'Aberto',
+    data.acao_automatizada ? 'TRUE' : 'FALSE',
+    data.contexto ?? '',
+    JSON.stringify(data.causas ?? []),
+    JSON.stringify(data.acoes ?? []),
     now,
     now,
   );
-  return findById(result.lastInsertRowid);
+  return findById(data.id_falha);
 }
 
-// Atualiza campos parciais de um alerta e retorna o objeto atualizado.
-// Apenas campos presentes em `data` são alterados.
+// Atualiza campos parciais de um incidente e retorna o objeto atualizado.
 export function update(id, data) {
   const now = new Date().toISOString();
   const setClauses = [];
   const params = [];
 
-  // Campos escalares simples
-  const scalarFields = ['type', 'title', 'area', 'risk', 'accuracy', 'predicted_for', 'status', 'context'];
+  // Campos escalares
+  const scalarFields = [
+    'cliente_nome', 'cliente_banda',
+    'dispositivo_id', 'dispositivo_nome', 'dispositivo_tipo_conexao', 'dispositivo_no_pai',
+    'falha_categoria', 'falha_descricao', 'falha_localizacao',
+    'perda_pacotes_pct', 'latencia_ms', 'falha_risco',
+    'falha_inicio', 'falha_resolucao', 'solucao_aplicada',
+    'incidente_status', 'contexto',
+  ];
   scalarFields.forEach((field) => {
     if (data[field] !== undefined) {
       setClauses.push(`${field} = ?`);
@@ -245,24 +246,19 @@ export function update(id, data) {
     }
   });
 
-  // Campos JSON
-  if (data.equipments !== undefined) {
-    setClauses.push('equipments = ?');
-    params.push(JSON.stringify(data.equipments));
-  }
-  if (data.causes !== undefined) {
-    setClauses.push('causes = ?');
-    params.push(JSON.stringify(data.causes));
-  }
-  if (data.actions !== undefined) {
-    setClauses.push('actions = ?');
-    params.push(JSON.stringify(data.actions));
+  if (data.acao_automatizada !== undefined) {
+    setClauses.push('acao_automatizada = ?');
+    params.push(data.acao_automatizada ? 'TRUE' : 'FALSE');
   }
 
-  // confirmed: true -> 1, false -> 0, null -> NULL
-  if (data.confirmed !== undefined) {
-    setClauses.push('confirmed = ?');
-    params.push(data.confirmed === null ? null : data.confirmed ? 1 : 0);
+  // Campos JSON
+  if (data.causas !== undefined) {
+    setClauses.push('causas = ?');
+    params.push(JSON.stringify(data.causas));
+  }
+  if (data.acoes !== undefined) {
+    setClauses.push('acoes = ?');
+    params.push(JSON.stringify(data.acoes));
   }
 
   // updated_at sempre atualizado
@@ -273,7 +269,7 @@ export function update(id, data) {
   params.push(id);
 
   db.prepare(
-    `UPDATE alerts SET ${setClauses.join(', ')} WHERE id = ? AND deleted_at IS NULL`,
+    `UPDATE logs_informativos SET ${setClauses.join(', ')} WHERE id_falha = ? AND deleted_at IS NULL`,
   ).run(...params);
 
   return findById(id);
@@ -284,7 +280,7 @@ export function softDelete(id) {
   const now = new Date().toISOString();
   const result = db
     .prepare(
-      `UPDATE alerts SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
+      `UPDATE logs_informativos SET deleted_at = ? WHERE id_falha = ? AND deleted_at IS NULL`,
     )
     .run(now, id);
   return result.changes > 0;

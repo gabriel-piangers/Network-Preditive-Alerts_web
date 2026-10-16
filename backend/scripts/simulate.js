@@ -1,4 +1,4 @@
-// Simula o agente Python enviando alertas via HTTP para a API.
+// Simula o agente enviando incidentes via HTTP para a API.
 //
 // Uso:
 //   npm run simulate                        (envia indefinidamente a cada 20s)
@@ -23,75 +23,87 @@ const intervalSec = Number(getArg('--interval') ?? 20);
 const maxCount = getArg('--count') ? Number(getArg('--count')) : null;
 
 // --- Templates para geração aleatória ---
-const TYPES = ['bandwidth_exceeded', 'congestion', 'equipment_failure', 'packet_loss', 'latency', 'other'];
-const RISKS = ['high', 'medium', 'low'];
-const AREAS = [
-  'São Paulo - Zona Leste',
-  'São Paulo - Zona Norte',
-  'São Paulo - Zona Sul',
-  'São Paulo - Centro',
-  'Campinas',
-  'Ribeirão Preto',
-  'Santo André',
-  'São Bernardo do Campo',
-  'Guarulhos',
-  'Sorocaba',
-  'Bauru',
-  'São José dos Campos',
-  'Osasco',
+const CATEGORIAS = [
+  'Perda de pacotes',
+  'LOS (Loss of Signal)',
+  'Latência elevada',
+  'Falha de equipamento',
+  'Degradação óptica',
+  'Congestionamento',
+  'Falha de autenticação',
+  'Interferência externa',
+  'Queda de energia',
+  'Banda excedida',
 ];
-const EQUIPMENT_PREFIXES = ['RTR', 'SW', 'OLT', 'DSLAM'];
-const EQUIPMENT_LOCATIONS = ['SP-ZL', 'SP-ZN', 'SP-ZS', 'SP-CT', 'CAMP', 'RP', 'SA', 'SBC', 'GRU', 'SOR', 'BAU', 'SJC'];
 
-const TITLES_BY_TYPE = {
-  bandwidth_exceeded: [
-    'Saturação prevista no link de backbone',
-    'Risco de saturação no link de interconexão',
-    'Uplink próximo à capacidade máxima',
-  ],
-  congestion: [
-    'Congestionamento previsto no switch de agregação',
-    'Previsão de congestionamento na rede PON',
-    'Pico de tráfego esperado no horário de pico',
-  ],
-  equipment_failure: [
-    'Falha iminente detectada no equipamento de borda',
-    'Degradação de hardware detectada por SNMP',
-    'Sinais de falha em fonte de alimentação',
-  ],
-  packet_loss: [
-    'Perda de pacotes prevista na rede de acesso',
-    'Descarte excessivo de pacotes no switch',
-    'Taxa de perda acima do limiar aceitável',
-  ],
-  latency: [
-    'Latência elevada prevista no enlace de longa distância',
-    'Aumento de RTT detectado no backbone',
-    'Degradação de latência no link de peering',
-  ],
-  other: [
-    'Anomalia de tráfego detectada',
-    'Padrão irregular identificado pelo modelo preditivo',
-    'Comportamento anômalo no segmento de rede',
-  ],
+const RISCOS = ['Crítico', 'Alto', 'Médio', 'Baixo'];
+const STATUS_VALUES = ['Aberto', 'Em Andamento'];
+
+const LOCALIZACOES = [
+  'Porto Alegre, RS - Centro',
+  'Porto Alegre, RS - Zona Norte',
+  'Porto Alegre, RS - Moinhos de Vento',
+  'Canoas, RS - Centro',
+  'São Leopoldo, RS - Centro',
+  'Novo Hamburgo, RS - Centro',
+  'Gravataí, RS - Morada dos Campos',
+  'Cachoeirinha, RS - Industrial',
+  'Alvorada, RS - Centro',
+  'Viamão, RS - Centro',
+];
+
+const TIPOS_CONEXAO = ['Fibra FTTH', 'Cabo Coaxial', 'Rádio', 'xDSL'];
+
+const DISPOSITIVOS_BY_CAT = {
+  'Perda de pacotes':      ['ONU Huawei EG8141A5', 'ONT Fiberhome AN5506', 'ONU ZTE F660'],
+  'LOS (Loss of Signal)':  ['ONU Huawei EG8141A5', 'OLT ZTE C320', 'OLT Huawei MA5800'],
+  'Latência elevada':      ['Router MikroTik RB4011', 'Modem Motorola SB6190', 'Switch Cisco SG350'],
+  'Falha de equipamento':  ['OLT ZTE C320', 'OLT Huawei MA5800', 'Switch Cisco SG350'],
+  'Degradação óptica':     ['ONU Huawei EG8141A5', 'ONT Huawei HG8245H', 'Splitter óptico 1x16'],
+  'Congestionamento':      ['Switch Cisco SG350', 'Router MikroTik RB4011', 'Switch Huawei S5735'],
+  'Falha de autenticação': ['Router TP-Link Archer C6', 'Router MikroTik RB4011', 'Modem Arris SB8200'],
+  'Interferência externa': ['Rádio Ubiquiti AirMax', 'Rádio Cambium PMP450', 'Antena Mikrotik LHG'],
+  'Queda de energia':      ['ONU Intelbras 1200R', 'Nobreak APC Smart-UPS', 'Gerador 15kVA'],
+  'Banda excedida':        ['Modem Sagemcom F@ST 3890', 'Router TP-Link Archer C6', 'ONU ZTE F660'],
 };
 
-const CAUSES_BY_TYPE = {
-  bandwidth_exceeded: ['Crescimento orgânico de assinantes', 'Evento de grande porte na região', 'Rota alternativa desativada para manutenção'],
-  congestion: ['Falta de QoS configurado', 'Crescimento de tráfego no horário de pico', 'Alta densidade de dispositivos móveis'],
-  equipment_failure: ['Equipamento com vida útil expirada', 'Superaquecimento por falha no sistema de refrigeração', 'Firmware desatualizado'],
-  packet_loss: ['Interferência eletromagnética no armário', 'Cabos com mau contato', 'Bug em versão de firmware'],
-  latency: ['Possível microfissura na fibra óptica', 'BGP flapping detectado', 'Sobrecarga no roteador de borda'],
-  other: ['Padrão anômalo de tráfego no período de madrugada', 'Variação não esperada no fluxo de dados'],
+const DESCRICOES_BY_CAT = {
+  'Perda de pacotes':      'Perda de pacote intermitente detectada pelo agente',
+  'LOS (Loss of Signal)':  'Queda total de sinal óptico detectada',
+  'Latência elevada':      'Latência acima do threshold aceitável',
+  'Falha de equipamento':  'Reinicializações frequentes e comportamento anômalo',
+  'Degradação óptica':     'Degradação progressiva da potência óptica recebida',
+  'Congestionamento':      'Utilização de uplink acima de 90%',
+  'Falha de autenticação': 'Múltiplas falhas de autenticação PPPoE detectadas',
+  'Interferência externa': 'Queda de SNR por interferência de RF detectada',
+  'Queda de energia':      'Queda de energia no nó de distribuição',
+  'Banda excedida':        'Consumo de banda acima de 95% do plano contratado',
 };
 
-const ACTIONS_BY_TYPE = {
-  bandwidth_exceeded: ['Verificar utilização de banda nas interfaces', 'Solicitar upgrade de link', 'Avaliar redirecionamento de tráfego'],
-  congestion: ['Aplicar políticas de QoS', 'Verificar filas de saída', 'Acionar equipe de campo'],
-  equipment_failure: ['Verificar temperatura e ventilação do rack', 'Agendar atualização de firmware', 'Providenciar equipamento reserva'],
-  packet_loss: ['Inspecionar fisicamente o armário', 'Verificar erros de interface nos logs', 'Isolar segmento afetado'],
-  latency: ['Executar traceroute entre os roteadores', 'Solicitar análise de OTDR', 'Verificar tabelas de roteamento BGP'],
-  other: ['Analisar logs do período identificado', 'Monitorar métricas por 2h', 'Acionar equipe de análise de capacidade'],
+const CAUSAS_BY_CAT = {
+  'Perda de pacotes':      ['Degradação do conector óptico', 'Flutuação de potência óptica', 'Cabo com mau contato'],
+  'LOS (Loss of Signal)':  ['Conector óptico danificado', 'Fibra cortada ou dobrada', 'Falha no transceptor da OLT'],
+  'Latência elevada':      ['Congestionamento no nó de agregação', 'BGP flapping', 'Sobrecarga no roteador de borda'],
+  'Falha de equipamento':  ['Superaquecimento', 'Firmware desatualizado com bug conhecido', 'Hardware com vida útil expirada'],
+  'Degradação óptica':     ['Contaminação por poeira no conector', 'Umidade na caixa de emenda', 'Microcurvatura na fibra'],
+  'Congestionamento':      ['Crescimento orgânico sem expansão de uplink', 'Ausência de políticas de QoS', 'Pico de tráfego por evento local'],
+  'Falha de autenticação': ['Senha PPPoE expirada no RADIUS', 'Conflito de credenciais no concentrador', 'Bug no firmware do roteador cliente'],
+  'Interferência externa': ['Fonte de RF em obra próxima', 'Equipamento de terceiros no mesmo canal', 'Obstáculo físico no enlace'],
+  'Queda de energia':      ['Temporal com queda da concessionária', 'Bateria do nobreak com capacidade reduzida', 'Falha no gerador de emergência'],
+  'Banda excedida':        ['Múltiplos dispositivos com streaming simultâneo', 'Plano insuficiente para o perfil de uso', 'Download de backup em horário comercial'],
+};
+
+const ACOES_BY_CAT = {
+  'Perda de pacotes':      ['Verificar potência óptica na porta OLT', 'Inspecionar cabo de acesso fisicamente', 'Realizar OTDR no trecho afetado'],
+  'LOS (Loss of Signal)':  ['Despachar equipe de campo', 'Verificar continuidade da fibra', 'Substituir transceptor da OLT'],
+  'Latência elevada':      ['Executar traceroute para identificar salto lento', 'Verificar tabela BGP no roteador de borda', 'Aplicar políticas de QoS'],
+  'Falha de equipamento':  ['Verificar temperatura e ventilação do rack', 'Atualizar firmware para versão corrigida', 'Acionar equipe de campo para substituição'],
+  'Degradação óptica':     ['Limpar conectores com kit de limpeza óptica', 'Verificar caixa de emenda em campo', 'Re-fundir emenda se necessário'],
+  'Congestionamento':      ['Ativar redistribuição de carga entre uplinks', 'Aplicar políticas de QoS', 'Solicitar upgrade de uplink'],
+  'Falha de autenticação': ['Resetar credenciais PPPoE no RADIUS', 'Reiniciar sessão PPPoE no concentrador', 'Atualizar firmware do roteador cliente'],
+  'Interferência externa': ['Mudar canal de operação RF', 'Instalar filtro de RF', 'Acionar fiscalização da ANATEL'],
+  'Queda de energia':      ['Acionar gerador de emergência', 'Notificar NOC e equipe de campo', 'Verificar capacidade das baterias do nobreak'],
+  'Banda excedida':        ['Notificar cliente sobre consumo elevado', 'Oferecer upgrade de plano', 'Aplicar QoS temporário para limitar impacto'],
 };
 
 // --- Funções utilitárias ---
@@ -103,57 +115,86 @@ function randInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// Usa Date.now() dinâmico (não um instante fixo) porque cada alerta
-// gerado pelo simulador deve ter predicted_for relativo ao momento do envio.
-function hoursFromNow(h) {
-  return new Date(Date.now() + h * 3_600_000).toISOString();
+function newIncidentId() {
+  return `INC-SIM-${Date.now()}-${randInt(1000, 9999)}`;
 }
 
-function generateEquipments() {
-  const count = randInt(1, 3);
-  const loc = pick(EQUIPMENT_LOCATIONS);
-  return Array.from({ length: count }, (_, i) => `${pick(EQUIPMENT_PREFIXES)}-${loc}-${String(randInt(1, 9)).padStart(2, '0')}${i > 0 ? i : ''}`);
+function newClientId() {
+  return `CLI-SIM-${randInt(2000, 9999)}`;
 }
 
-// --- Geração de alerta aleatório ---
-function generateAlert() {
-  const type = pick(TYPES);
-  const area = pick(AREAS);
-  const risk = pick(RISKS);
-  const accuracy = randInt(70, 99);
-  const predicted_for = hoursFromNow(randInt(1, 48));
-  const title = `${pick(TITLES_BY_TYPE[type])} — ${area}`;
-  const equipments = generateEquipments();
+// --- Geração de incidente aleatório ---
+function generateIncident() {
+  const categoria = pick(CATEGORIAS);
+  const localizacao = pick(LOCALIZACOES);
+  const risco = pick(RISCOS);
+  const incidente_status = pick(STATUS_VALUES);
+  const dispositivo_nome = pick(DISPOSITIVOS_BY_CAT[categoria]);
+  const tipo_conexao = pick(TIPOS_CONEXAO);
 
-  const causePool = CAUSES_BY_TYPE[type];
-  const causes = [pick(causePool), pick(causePool)].filter((v, i, a) => a.indexOf(v) === i);
+  const causePool = CAUSAS_BY_CAT[categoria];
+  const causas = [pick(causePool), pick(causePool)].filter((v, i, a) => a.indexOf(v) === i);
 
-  const actionPool = ACTIONS_BY_TYPE[type];
-  const actions = [pick(actionPool), pick(actionPool), pick(actionPool)]
+  const acaoPool = ACOES_BY_CAT[categoria];
+  const acoes = [pick(acaoPool), pick(acaoPool), pick(acaoPool)]
     .filter((v, i, a) => a.indexOf(v) === i)
     .map((text) => ({ text, done: false }));
 
-  const context =
-    `Análise preditiva identificou risco de ${risk === 'high' ? 'alto' : risk === 'medium' ? 'médio' : 'baixo'} impacto ` +
-    `na área de ${area}.\nModelo retornou ${accuracy}% de certeza para ocorrência prevista em ` +
-    `${new Date(predicted_for).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}.`;
+  const perda_pacotes_pct = ['Perda de pacotes', 'LOS (Loss of Signal)', 'Congestionamento'].includes(categoria)
+    ? parseFloat((Math.random() * 50).toFixed(1))
+    : null;
 
-  return { type, title, area, equipments, risk, accuracy, predicted_for, context, causes, actions };
+  const latencia_ms = ['Latência elevada', 'Congestionamento', 'Banda excedida'].includes(categoria)
+    ? parseFloat((50 + Math.random() * 400).toFixed(1))
+    : null;
+
+  const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+  const contexto =
+    `Incidente detectado em tempo real pelo agente de monitoramento. ` +
+    `Categoria: ${categoria}. Risco classificado como ${risco}. ` +
+    `Dispositivo: ${dispositivo_nome} em ${localizacao}. ` +
+    `Investigação inicial concluída — causas e ações recomendadas geradas automaticamente.`;
+
+  return {
+    id_falha: newIncidentId(),
+    cliente_id: newClientId(),
+    cliente_nome: null,
+    cliente_banda: pick(['100 Mbps', '200 Mbps', '300 Mbps', '500 Mbps', '1 Gbps']),
+    dispositivo_id: `DEV-SIM-${randInt(1000, 9999)}`,
+    dispositivo_nome,
+    dispositivo_tipo_conexao: tipo_conexao,
+    dispositivo_no_pai: `OLT-SIM-${String(randInt(1, 20)).padStart(2, '0')}`,
+    falha_categoria: categoria,
+    falha_descricao: DESCRICOES_BY_CAT[categoria],
+    falha_localizacao: localizacao,
+    perda_pacotes_pct,
+    latencia_ms,
+    falha_risco: risco,
+    falha_inicio: now,
+    falha_resolucao: null,
+    solucao_aplicada: null,
+    incidente_status,
+    acao_automatizada: Math.random() < 0.4,
+    contexto,
+    causas,
+    acoes,
+  };
 }
 
 // --- Comunicação com a API ---
-async function postAlert(alert) {
+async function postIncident(incident) {
   const res = await fetch(`${API_URL}/api/alerts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-API-Key': AGENT_API_KEY },
-    body: JSON.stringify(alert),
+    body: JSON.stringify(incident),
   });
   const data = await res.json();
   return { status: res.status, data };
 }
 
-async function patchAlert(id, patch) {
-  const res = await fetch(`${API_URL}/api/alerts/${id}`, {
+async function patchIncident(id, patch) {
+  const res = await fetch(`${API_URL}/api/alerts/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', 'X-API-Key': AGENT_API_KEY },
     body: JSON.stringify(patch),
@@ -162,8 +203,8 @@ async function patchAlert(id, patch) {
   return { status: res.status, data };
 }
 
-async function getActiveAlerts() {
-  const res = await fetch(`${API_URL}/api/alerts?status=new&limit=20`);
+async function getActiveIncidents() {
+  const res = await fetch(`${API_URL}/api/alerts?incidente_status=Aberto,Em%20Andamento&page_size=20`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.data ?? [];
@@ -176,22 +217,19 @@ async function runCycle() {
   count++;
   console.log(`\n[Ciclo ${count}] ${new Date().toISOString()}`);
 
-  // ~25% dos ciclos: enriquecer um alerta ativo existente via PATCH
+  // ~25% dos ciclos: enriquecer um incidente ativo existente via PATCH
   if (Math.random() < 0.25) {
-    const active = await getActiveAlerts();
+    const active = await getActiveIncidents();
     if (active.length > 0) {
       const target = pick(active);
-      const accuracyDelta = randInt(-3, 5);
-      const newAccuracy = Math.min(99, Math.max(70, (target.accuracy ?? 80) + accuracyDelta));
-      const extraContext = ` Atualização do modelo: certeza ajustada para ${newAccuracy}%.`;
       const patch = {
-        accuracy: newAccuracy,
-        context: (target.context ?? '') + extraContext,
+        incidente_status: 'Em Andamento',
+        contexto: (target.contexto ?? '') + ' [Atualizado pelo agente: investigação em andamento.]',
       };
-      const { status, data } = await patchAlert(target.id, patch);
-      console.log(`  PATCH /api/alerts/${target.id} -> ${status}`);
+      const { status, data } = await patchIncident(target.id_falha, patch);
+      console.log(`  PATCH /api/alerts/${target.id_falha} -> ${status}`);
       if (status === 200) {
-        console.log(`    accuracy: ${target.accuracy} → ${newAccuracy}, alerta: "${target.title}"`);
+        console.log(`    status: Aberto → Em Andamento, incidente: "${target.falha_descricao}"`);
       } else {
         console.log(`    Resposta:`, JSON.stringify(data));
       }
@@ -199,13 +237,13 @@ async function runCycle() {
     }
   }
 
-  // Restante dos ciclos (ou quando não há alertas ativos): criar novo alerta
-  const alert = generateAlert();
-  console.log(`  POST /api/alerts — tipo: ${alert.type}, risco: ${alert.risk}, certeza: ${alert.accuracy}%`);
-  console.log(`    Título: "${alert.title}"`);
+  // Restante dos ciclos (ou quando não há incidentes ativos): criar novo incidente
+  const incident = generateIncident();
+  console.log(`  POST /api/alerts — categoria: ${incident.falha_categoria}, risco: ${incident.falha_risco}`);
+  console.log(`    Descrição: "${incident.falha_descricao}" em ${incident.falha_localizacao}`);
 
-  const { status, data } = await postAlert(alert);
-  console.log(`    -> ${status}${status === 201 ? ` | id: ${data.data?.id}` : ''}`);
+  const { status, data } = await postIncident(incident);
+  console.log(`    -> ${status}${status === 201 ? ` | id: ${data.data?.id_falha}` : ''}`);
   if (status !== 201) {
     console.log(`    Resposta:`, JSON.stringify(data));
   }
@@ -213,7 +251,7 @@ async function runCycle() {
 
 // --- Bootstrap ---
 async function main() {
-  console.log(`\n🤖 Simulador iniciado`);
+  console.log(`\n🤖 Simulador de incidentes iniciado`);
   console.log(`   API_URL    : ${API_URL}`);
   console.log(`   Intervalo  : ${intervalSec}s`);
   console.log(`   Limite     : ${maxCount ?? '∞'} ciclos`);

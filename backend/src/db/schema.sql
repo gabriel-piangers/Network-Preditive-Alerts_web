@@ -1,27 +1,40 @@
 -- Schema do banco de dados SQLite.
--- Executado na inicialização via connection.js com CREATE TABLE IF NOT EXISTS.
--- Para recriar o banco do zero: apague o arquivo .db e rode npm run seed.
+-- A tabela principal é logs_informativos, que registra incidentes de rede
+-- recebidos em tempo real pelo agente, que enriquece cada entrada com
+-- investigação inicial, causas, ações e contexto.
+-- Este arquivo só é executado quando o DB é criado do zero (npm run seed).
 
-CREATE TABLE IF NOT EXISTS alerts (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  type          TEXT    NOT NULL CHECK (type IN ('bandwidth_exceeded','congestion','equipment_failure','packet_loss','latency','other')),
-  title         TEXT    NOT NULL,
-  area          TEXT    NOT NULL,
-  equipments    TEXT    NOT NULL DEFAULT '[]',      -- JSON (array de strings)
-  risk          TEXT    NOT NULL CHECK (risk IN ('high','medium','low')),
-  accuracy      REAL    NOT NULL CHECK (accuracy >= 0 AND accuracy <= 100),
-  predicted_for TEXT    NOT NULL,                   -- ISO 8601 UTC
-  status        TEXT    NOT NULL DEFAULT 'new' CHECK (status IN ('new','in_analysis','monitoring','resolved','false_positive','expired')),
-  context       TEXT    NOT NULL DEFAULT '',
-  causes        TEXT    NOT NULL DEFAULT '[]',      -- JSON (array de strings)
-  actions       TEXT    NOT NULL DEFAULT '[]',      -- JSON (array de {text, done})
-  confirmed     INTEGER CHECK (confirmed IN (0,1)), -- NULL | 0 | 1
-  created_at    TEXT    NOT NULL,
-  updated_at    TEXT    NOT NULL,
-  deleted_at    TEXT                                -- soft delete (NULL = ativo)
+CREATE TABLE IF NOT EXISTS "logs_informativos" (
+  "id_falha"                TEXT    NOT NULL,
+  "cliente_id"              TEXT    NOT NULL,
+  "cliente_nome"            TEXT,
+  "cliente_banda"           TEXT,
+  "dispositivo_id"          TEXT,
+  "dispositivo_nome"        TEXT,
+  "dispositivo_tipo_conexao" TEXT,
+  "dispositivo_no_pai"      TEXT,
+  "falha_categoria"         TEXT,
+  "falha_descricao"         TEXT,
+  "falha_localizacao"       TEXT,
+  "perda_pacotes_pct"       REAL,
+  "latencia_ms"             REAL,
+  "falha_risco"             TEXT,
+  "falha_inicio"            TEXT,
+  "falha_resolucao"         TEXT,
+  "solucao_aplicada"        TEXT,
+  "incidente_status"        TEXT    NOT NULL DEFAULT 'Aberto',
+  "acao_automatizada"       TEXT    NOT NULL DEFAULT 'FALSE',
+  -- Campos enriquecidos pelo agente após investigação inicial
+  "contexto"                TEXT    NOT NULL DEFAULT '',
+  "causas"                  TEXT    NOT NULL DEFAULT '[]',  -- JSON array de strings
+  "acoes"                   TEXT    NOT NULL DEFAULT '[]',  -- JSON array de {text, done}
+  "created_at"              TEXT    NOT NULL,
+  "updated_at"              TEXT    NOT NULL,
+  "deleted_at"              TEXT,                           -- soft delete (NULL = ativo)
+  PRIMARY KEY("id_falha")
 );
 
-CREATE INDEX IF NOT EXISTS idx_alerts_status        ON alerts(status);
-CREATE INDEX IF NOT EXISTS idx_alerts_risk          ON alerts(risk);
-CREATE INDEX IF NOT EXISTS idx_alerts_predicted_for ON alerts(predicted_for);
-CREATE INDEX IF NOT EXISTS idx_alerts_deleted_at    ON alerts(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_logs_incidente_status ON logs_informativos(incidente_status);
+CREATE INDEX IF NOT EXISTS idx_logs_falha_risco      ON logs_informativos(falha_risco);
+CREATE INDEX IF NOT EXISTS idx_logs_falha_inicio     ON logs_informativos(falha_inicio);
+CREATE INDEX IF NOT EXISTS idx_logs_deleted_at       ON logs_informativos(deleted_at);

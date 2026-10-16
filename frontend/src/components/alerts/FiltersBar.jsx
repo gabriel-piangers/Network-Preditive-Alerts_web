@@ -1,20 +1,19 @@
-import { ALERT_RISK_LABELS, ALERT_STATUS_LABELS, ALERT_TYPE_LABELS } from '../../constants/alerts.js';
+import { FALHA_RISCO_LABELS, INCIDENTE_STATUS_LABELS, FALHA_CATEGORIA_LABELS } from '../../constants/alerts.js';
 import { DEFAULT_FILTERS, hasCustomFilters } from '../../utils/filters.js';
 import './FiltersBar.css';
 
 /**
- * Barra de filtros da lista de alertas.
+ * Barra de filtros da lista de incidentes.
  * Filtros ficam na URL — este componente apenas exibe o estado atual e
  * chama onFilterChange para atualizar.
- * Conforme seção 7.6 do SPEC.
  *
  * @param {{
  *   filters: object,
- *   areas: string[],
+ *   localizacoes: string[],
  *   onFilterChange: (partial: object) => void,
  * }} props
  */
-export default function FiltersBar({ filters, areas = [], onFilterChange }) {
+export default function FiltersBar({ filters, localizacoes = [], onFilterChange }) {
   const hasCustom = hasCustomFilters(filters);
 
   function toggleMulti(field, value) {
@@ -26,20 +25,21 @@ export default function FiltersBar({ filters, areas = [], onFilterChange }) {
   }
 
   return (
-    <div className="filters-bar" role="search" aria-label="Filtros de alertas">
+    <div className="filters-bar" role="search" aria-label="Filtros de incidentes">
       {/* Risco — multisseleção */}
       <fieldset className="filters-bar__group">
         <legend className="filters-bar__label">Risco</legend>
         <div className="filters-bar__options">
-          {Object.entries(ALERT_RISK_LABELS).map(([value, label]) => {
-            const checked = (filters.risk ?? []).includes(value);
+          {Object.entries(FALHA_RISCO_LABELS).map(([value, label]) => {
+            const checked = (filters.falha_risco ?? []).includes(value);
+            const cls = value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-');
             return (
-              <label key={value} className={`filter-chip filter-chip--risk-${value}${checked ? ' filter-chip--active' : ''}`}>
+              <label key={value} className={`filter-chip filter-chip--risk-${cls}${checked ? ' filter-chip--active' : ''}`}>
                 <input
                   type="checkbox"
                   className="filter-chip__input"
                   checked={checked}
-                  onChange={() => toggleMulti('risk', value)}
+                  onChange={() => toggleMulti('falha_risco', value)}
                 />
                 {label}
               </label>
@@ -52,15 +52,15 @@ export default function FiltersBar({ filters, areas = [], onFilterChange }) {
       <fieldset className="filters-bar__group">
         <legend className="filters-bar__label">Situação</legend>
         <div className="filters-bar__options">
-          {Object.entries(ALERT_STATUS_LABELS).map(([value, label]) => {
-            const checked = (filters.status ?? []).includes(value);
+          {Object.entries(INCIDENTE_STATUS_LABELS).map(([value, label]) => {
+            const checked = (filters.incidente_status ?? []).includes(value);
             return (
               <label key={value} className={`filter-chip${checked ? ' filter-chip--active' : ''}`}>
                 <input
                   type="checkbox"
                   className="filter-chip__input"
                   checked={checked}
-                  onChange={() => toggleMulti('status', value)}
+                  onChange={() => toggleMulti('incidente_status', value)}
                 />
                 {label}
               </label>
@@ -69,19 +69,19 @@ export default function FiltersBar({ filters, areas = [], onFilterChange }) {
         </div>
       </fieldset>
 
-      {/* Tipo — multisseleção */}
+      {/* Categoria — multisseleção */}
       <fieldset className="filters-bar__group">
-        <legend className="filters-bar__label">Tipo</legend>
+        <legend className="filters-bar__label">Categoria</legend>
         <div className="filters-bar__options">
-          {Object.entries(ALERT_TYPE_LABELS).map(([value, label]) => {
-            const checked = (filters.type ?? []).includes(value);
+          {Object.entries(FALHA_CATEGORIA_LABELS).map(([value, label]) => {
+            const checked = (filters.falha_categoria ?? []).includes(value);
             return (
               <label key={value} className={`filter-chip${checked ? ' filter-chip--active' : ''}`}>
                 <input
                   type="checkbox"
                   className="filter-chip__input"
                   checked={checked}
-                  onChange={() => toggleMulti('type', value)}
+                  onChange={() => toggleMulti('falha_categoria', value)}
                 />
                 {label}
               </label>
@@ -90,44 +90,24 @@ export default function FiltersBar({ filters, areas = [], onFilterChange }) {
         </div>
       </fieldset>
 
-      {/* Área — seleção única */}
+      {/* Localização — seleção única */}
       <div className="filters-bar__group">
-        <label className="filters-bar__label" htmlFor="filter-area">
-          Área
+        <label className="filters-bar__label" htmlFor="filter-localizacao">
+          Localização
         </label>
         <select
-          id="filter-area"
+          id="filter-localizacao"
           className="filters-bar__select"
-          value={filters.area ?? ''}
-          onChange={(e) => onFilterChange({ area: e.target.value, page: 1 })}
+          value={filters.falha_localizacao ?? ''}
+          onChange={(e) => onFilterChange({ falha_localizacao: e.target.value, page: 1 })}
         >
-          <option value="">Todas as áreas</option>
-          {areas.map((area) => (
-            <option key={area} value={area}>
-              {area}
+          <option value="">Todas as localizações</option>
+          {localizacoes.map((loc) => (
+            <option key={loc} value={loc}>
+              {loc}
             </option>
           ))}
         </select>
-      </div>
-
-      {/* Certeza mínima — slider */}
-      <div className="filters-bar__group">
-        <label className="filters-bar__label" htmlFor="filter-accuracy">
-          Certeza mínima:{' '}
-          <strong>{filters.min_accuracy ?? DEFAULT_FILTERS.min_accuracy}%</strong>
-        </label>
-        <input
-          id="filter-accuracy"
-          type="range"
-          min={50}
-          max={100}
-          step={5}
-          value={filters.min_accuracy ?? DEFAULT_FILTERS.min_accuracy}
-          className="filters-bar__slider"
-          onChange={(e) =>
-            onFilterChange({ min_accuracy: parseInt(e.target.value, 10), page: 1 })
-          }
-        />
       </div>
 
       {/* Limpar filtros */}
@@ -138,11 +118,10 @@ export default function FiltersBar({ filters, areas = [], onFilterChange }) {
             className="filters-bar__clear-btn"
             onClick={() =>
               onFilterChange({
-                status: [...DEFAULT_FILTERS.status],
-                risk: [],
-                type: [],
-                area: '',
-                min_accuracy: DEFAULT_FILTERS.min_accuracy,
+                incidente_status: [...DEFAULT_FILTERS.incidente_status],
+                falha_risco: [],
+                falha_categoria: [],
+                falha_localizacao: '',
                 page: 1,
               })
             }

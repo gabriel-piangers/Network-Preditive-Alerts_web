@@ -1,23 +1,20 @@
 /**
  * Converte entre o estado interno de filtros, a query string da URL e os
  * parâmetros enviados para a API.
- * Conforme seção 7.6 do SPEC.
  *
- * Nota: o backend usa os nomes `sort`, `order` e `page_size` (não sort_by/sort_dir/limit).
- * O estado interno e a URL usam `sort_by`/`sort_dir`/`limit` — a conversão acontece
- * apenas em filtersToApiParams, ao chamar a API.
+ * Nota: os nomes de filtro da API são os mesmos do banco (incidente_status,
+ * falha_risco, falha_categoria, falha_localizacao).
  */
 
 import { ACTIVE_STATUSES } from '../constants/alerts.js';
 
-/** Filtros padrão ao abrir a página (apenas alertas ativos). */
+/** Filtros padrão ao abrir a página (apenas incidentes ativos). */
 export const DEFAULT_FILTERS = {
-  status: [...ACTIVE_STATUSES],
-  risk: [],
-  type: [],
-  area: '',
-  min_accuracy: 50,
-  sort_by: 'risk',
+  incidente_status: [...ACTIVE_STATUSES],
+  falha_risco: [],
+  falha_categoria: [],
+  falha_localizacao: '',
+  sort_by: 'falha_risco',
   sort_dir: 'desc',
   page: 1,
 };
@@ -29,21 +26,19 @@ export const DEFAULT_FILTERS = {
  * @returns {object}
  */
 export function filtersFromSearch(params) {
-  const status = params.getAll('status');
-  const risk = params.getAll('risk');
-  const type = params.getAll('type');
-  const area = params.get('area') || '';
-  const minAccuracy = params.get('min_accuracy');
+  const incidente_status = params.getAll('incidente_status');
+  const falha_risco = params.getAll('falha_risco');
+  const falha_categoria = params.getAll('falha_categoria');
+  const falha_localizacao = params.get('falha_localizacao') || '';
   const sortBy = params.get('sort_by') || DEFAULT_FILTERS.sort_by;
   const sortDir = params.get('sort_dir') || DEFAULT_FILTERS.sort_dir;
   const page = parseInt(params.get('page') || '1', 10);
 
   return {
-    status: status.length > 0 ? status : [...ACTIVE_STATUSES],
-    risk: risk.length > 0 ? risk : [],
-    type: type.length > 0 ? type : [],
-    area,
-    min_accuracy: minAccuracy !== null ? parseInt(minAccuracy, 10) : DEFAULT_FILTERS.min_accuracy,
+    incidente_status: incidente_status.length > 0 ? incidente_status : [...ACTIVE_STATUSES],
+    falha_risco: falha_risco.length > 0 ? falha_risco : [],
+    falha_categoria: falha_categoria.length > 0 ? falha_categoria : [],
+    falha_localizacao,
     sort_by: sortBy,
     sort_dir: sortDir,
     page: isNaN(page) || page < 1 ? 1 : page,
@@ -59,14 +54,11 @@ export function filtersFromSearch(params) {
 export function filtersToSearch(filters) {
   const params = new URLSearchParams();
 
-  (filters.status || []).forEach((s) => params.append('status', s));
-  (filters.risk || []).forEach((r) => params.append('risk', r));
-  (filters.type || []).forEach((t) => params.append('type', t));
+  (filters.incidente_status || []).forEach((s) => params.append('incidente_status', s));
+  (filters.falha_risco || []).forEach((r) => params.append('falha_risco', r));
+  (filters.falha_categoria || []).forEach((c) => params.append('falha_categoria', c));
 
-  if (filters.area) params.set('area', filters.area);
-  if (filters.min_accuracy !== DEFAULT_FILTERS.min_accuracy) {
-    params.set('min_accuracy', String(filters.min_accuracy));
-  }
+  if (filters.falha_localizacao) params.set('falha_localizacao', filters.falha_localizacao);
   if (filters.sort_by !== DEFAULT_FILTERS.sort_by) params.set('sort_by', filters.sort_by);
   if (filters.sort_dir !== DEFAULT_FILTERS.sort_dir) params.set('sort_dir', filters.sort_dir);
   if (filters.page > 1) params.set('page', String(filters.page));
@@ -76,8 +68,7 @@ export function filtersToSearch(filters) {
 
 /**
  * Converte os filtros para os parâmetros que a API espera.
- * O backend usa CSV para arrays (status=new,in_analysis) e os nomes
- * `sort`, `order` e `page_size`.
+ * Arrays são enviados como CSV (formato que o backend aceita).
  *
  * @param {object} filters
  * @param {number} [pageSize=20]
@@ -86,21 +77,16 @@ export function filtersToSearch(filters) {
 export function filtersToApiParams(filters, pageSize = 20) {
   const params = new URLSearchParams();
 
-  // Arrays são enviados como CSV (formato que o backend aceita)
-  const status = filters.status || [];
-  const risk = filters.risk || [];
-  const type = filters.type || [];
+  const incidente_status = filters.incidente_status || [];
+  const falha_risco = filters.falha_risco || [];
+  const falha_categoria = filters.falha_categoria || [];
 
-  if (status.length > 0) params.set('status', status.join(','));
-  if (risk.length > 0) params.set('risk', risk.join(','));
-  if (type.length > 0) params.set('type', type.join(','));
+  if (incidente_status.length > 0) params.set('incidente_status', incidente_status.join(','));
+  if (falha_risco.length > 0) params.set('falha_risco', falha_risco.join(','));
+  if (falha_categoria.length > 0) params.set('falha_categoria', falha_categoria.join(','));
 
-  if (filters.area) params.set('area', filters.area);
-  if (filters.min_accuracy != null) {
-    params.set('min_accuracy', String(filters.min_accuracy));
-  }
+  if (filters.falha_localizacao) params.set('falha_localizacao', filters.falha_localizacao);
 
-  // O backend usa `sort` e `order` (não sort_by/sort_dir)
   params.set('sort', filters.sort_by || DEFAULT_FILTERS.sort_by);
   params.set('order', filters.sort_dir || DEFAULT_FILTERS.sort_dir);
   params.set('page', String(filters.page || 1));
@@ -117,12 +103,11 @@ export function filtersToApiParams(filters, pageSize = 20) {
  */
 export function hasCustomFilters(filters) {
   const defaultStatus = [...ACTIVE_STATUSES].sort().join(',');
-  const currentStatus = [...(filters.status || [])].sort().join(',');
+  const currentStatus = [...(filters.incidente_status || [])].sort().join(',');
   return (
     currentStatus !== defaultStatus ||
-    (filters.risk || []).length > 0 ||
-    (filters.type || []).length > 0 ||
-    !!filters.area ||
-    filters.min_accuracy !== DEFAULT_FILTERS.min_accuracy
+    (filters.falha_risco || []).length > 0 ||
+    (filters.falha_categoria || []).length > 0 ||
+    !!filters.falha_localizacao
   );
 }

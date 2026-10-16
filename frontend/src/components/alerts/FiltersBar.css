@@ -62,19 +62,24 @@
 }
 
 /* Chips de risco quando ativos usam a cor semântica */
-.filter-chip--risk-high.filter-chip--active {
-  background-color: var(--color-risk-high);
-  border-color: var(--color-risk-high);
+.filter-chip--risk-critico.filter-chip--active {
+  background-color: var(--color-risk-critico);
+  border-color: var(--color-risk-critico);
 }
 
-.filter-chip--risk-medium.filter-chip--active {
-  background-color: var(--color-risk-medium);
-  border-color: var(--color-risk-medium);
+.filter-chip--risk-alto.filter-chip--active {
+  background-color: var(--color-risk-alto);
+  border-color: var(--color-risk-alto);
 }
 
-.filter-chip--risk-low.filter-chip--active {
-  background-color: var(--color-risk-low);
-  border-color: var(--color-risk-low);
+.filter-chip--risk-medio.filter-chip--active {
+  background-color: var(--color-risk-medio);
+  border-color: var(--color-risk-medio);
+}
+
+.filter-chip--risk-baixo.filter-chip--active {
+  background-color: var(--color-risk-baixo);
+  border-color: var(--color-risk-baixo);
 }
 
 /* Esconde o input nativo do checkbox visualmente */
@@ -102,13 +107,6 @@
 .filters-bar__select:focus {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
-}
-
-/* Slider de certeza mínima */
-.filters-bar__slider {
-  width: 140px;
-  accent-color: var(--color-primary);
-  cursor: pointer;
 }
 
 /* Botão de limpar */

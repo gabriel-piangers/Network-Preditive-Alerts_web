@@ -1,38 +1,40 @@
-// Enums e rótulos em PT-BR para tipos, riscos e situações de alertas.
+// Enums e rótulos em PT-BR para categorias, riscos e situações de incidentes.
 // Centralizar aqui evita textos espalhados nos componentes.
-// Baseado nas tabelas das seções 5.2, 5.3 e 5.4 do SPEC.md.
-// TODO (Fase 4): preencher os valores conforme o SPEC
 
-export const ALERT_TYPE_LABELS = {
-  bandwidth_exceeded: 'Banda excedida',
-  congestion: 'Congestionamento',
-  equipment_failure: 'Falha de equipamento',
-  packet_loss: 'Perda de pacotes',
-  latency: 'Latência elevada',
-  other: 'Outro',
+export const FALHA_CATEGORIA_LABELS = {
+  'Perda de pacotes': 'Perda de pacotes',
+  'LOS (Loss of Signal)': 'LOS (Perda de sinal)',
+  'Latência elevada': 'Latência elevada',
+  'Falha de equipamento': 'Falha de equipamento',
+  'Degradação óptica': 'Degradação óptica',
+  'Congestionamento': 'Congestionamento',
+  'Falha de autenticação': 'Falha de autenticação',
+  'Interferência externa': 'Interferência externa',
+  'Queda de energia': 'Queda de energia',
+  'Banda excedida': 'Banda excedida',
+  'Outro': 'Outro',
 };
 
-export const ALERT_RISK_LABELS = {
-  high: 'Alto',
-  medium: 'Médio',
-  low: 'Baixo',
+export const FALHA_RISCO_LABELS = {
+  'Crítico': 'Crítico',
+  'Alto': 'Alto',
+  'Médio': 'Médio',
+  'Baixo': 'Baixo',
 };
 
 // Peso numérico para ordenação (maior = mais urgente)
-export const ALERT_RISK_WEIGHT = {
-  high: 3,
-  medium: 2,
-  low: 1,
+export const FALHA_RISCO_WEIGHT = {
+  'Crítico': 4,
+  'Alto': 3,
+  'Médio': 2,
+  'Baixo': 1,
 };
 
-export const ALERT_STATUS_LABELS = {
-  new: 'Novo',
-  in_analysis: 'Em análise',
-  monitoring: 'Monitorando',
-  resolved: 'Resolvido',
-  false_positive: 'Falso positivo',
-  expired: 'Expirado',
+export const INCIDENTE_STATUS_LABELS = {
+  'Aberto': 'Aberto',
+  'Em Andamento': 'Em Andamento',
+  'Resolvido': 'Resolvido',
 };
 
 // Status considerados "ativos" (usados no filtro padrão da lista)
-export const ACTIVE_STATUSES = ['new', 'in_analysis', 'monitoring'];
+export const ACTIVE_STATUSES = ['Aberto', 'Em Andamento'];

@@ -7,32 +7,17 @@
   white-space: nowrap;
 }
 
-.status-badge--new {
-  color: var(--color-status-new);
-  background-color: var(--color-status-new-bg);
+.status-badge--aberto {
+  color: var(--color-status-aberto);
+  background-color: var(--color-status-aberto-bg);
 }
 
-.status-badge--in-analysis {
-  color: var(--color-status-in-analysis);
-  background-color: var(--color-status-in-analysis-bg);
+.status-badge--em-andamento {
+  color: var(--color-status-em-andamento);
+  background-color: var(--color-status-em-andamento-bg);
 }
 
-.status-badge--monitoring {
-  color: var(--color-status-monitoring);
-  background-color: var(--color-status-monitoring-bg);
-}
-
-.status-badge--resolved {
-  color: var(--color-status-resolved);
-  background-color: var(--color-status-resolved-bg);
-}
-
-.status-badge--false-positive {
-  color: var(--color-status-false-positive);
-  background-color: var(--color-status-false-positive-bg);
-}
-
-.status-badge--expired {
-  color: var(--color-status-expired);
-  background-color: var(--color-status-expired-bg);
+.status-badge--resolvido {
+  color: var(--color-status-resolvido);
+  background-color: var(--color-status-resolvido-bg);
 }

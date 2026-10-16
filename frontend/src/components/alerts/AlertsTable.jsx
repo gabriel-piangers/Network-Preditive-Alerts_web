@@ -2,19 +2,16 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import RiskBadge from './RiskBadge.jsx';
 import StatusBadge from './StatusBadge.jsx';
-import AccuracyBar from './AccuracyBar.jsx';
 import { SkeletonRow } from '../feedback/Skeleton.jsx';
-import { formatAbsolute, formatRelative, isPast } from '../../utils/dates.js';
-import { ALERT_TYPE_LABELS } from '../../constants/alerts.js';
+import { FALHA_CATEGORIA_LABELS } from '../../constants/alerts.js';
 import './AlertsTable.css';
 
 /**
- * Tabela de alertas com cabeçalhos clicáveis para ordenação e paginação.
- * Conforme seção 7.6 do SPEC.
+ * Tabela de incidentes com cabeçalhos clicáveis para ordenação e paginação.
  *
  * @param {{
  *   alerts: object[],
- *   meta: { page: number, limit: number, total: number, total_pages: number },
+ *   meta: { page: number, page_size: number, total: number, total_pages: number },
  *   isLoading: boolean,
  *   filters: object,
  *   onFilterChange: (partial: object) => void,
@@ -23,7 +20,7 @@ import './AlertsTable.css';
 export default function AlertsTable({ alerts, meta, isLoading, filters, onFilterChange }) {
   const navigate = useNavigate();
 
-  const sortBy = filters?.sort_by ?? 'risk';
+  const sortBy = filters?.sort_by ?? 'falha_risco';
   const sortDir = filters?.sort_dir ?? 'desc';
 
   function handleSort(field) {
@@ -62,23 +59,21 @@ export default function AlertsTable({ alerts, meta, isLoading, filters, onFilter
   const totalPages = meta?.total_pages ?? 1;
   const total = meta?.total ?? 0;
 
-  // Linhas de esqueleto durante o carregamento inicial
   const skeletonRows = isLoading && (!alerts || alerts.length === 0)
     ? Array.from({ length: 8 })
     : [];
 
   return (
     <div className="alerts-table-wrapper">
-      <table className="alerts-table" aria-label="Lista de alertas">
+      <table className="alerts-table" aria-label="Lista de incidentes">
         <thead>
           <tr>
-            <ThSortable field="risk">Risco</ThSortable>
-            <th className="alerts-table__th">Alerta</th>
-            <ThSortable field="area">Área</ThSortable>
-            <th className="alerts-table__th">Equipamentos</th>
-            <ThSortable field="predicted_for">Previsão</ThSortable>
-            <ThSortable field="accuracy">Certeza</ThSortable>
-            <ThSortable field="status">Situação</ThSortable>
+            <ThSortable field="falha_risco">Risco</ThSortable>
+            <th className="alerts-table__th">Incidente</th>
+            <ThSortable field="falha_localizacao">Localização</ThSortable>
+            <th className="alerts-table__th">Dispositivo</th>
+            <ThSortable field="falha_inicio">Início</ThSortable>
+            <ThSortable field="incidente_status">Situação</ThSortable>
           </tr>
         </thead>
         <tbody>
@@ -87,41 +82,41 @@ export default function AlertsTable({ alerts, meta, isLoading, filters, onFilter
           ))}
           {!isLoading && alerts && alerts.length === 0 && (
             <tr>
-              <td colSpan={7} className="alerts-table__empty">
-                Nenhum alerta encontrado.
+              <td colSpan={6} className="alerts-table__empty">
+                Nenhum incidente encontrado.
               </td>
             </tr>
           )}
           {(alerts ?? []).map((alert) => (
             <tr
-              key={alert.id}
+              key={alert.id_falha}
               className="alerts-table__row"
-              onClick={() => navigate(`/alerts/${alert.id}`)}
+              onClick={() => navigate(`/alerts/${encodeURIComponent(alert.id_falha)}`)}
               tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && navigate(`/alerts/${alert.id}`)}
-              aria-label={`Ver detalhes do alerta: ${alert.title}`}
+              onKeyDown={(e) => e.key === 'Enter' && navigate(`/alerts/${encodeURIComponent(alert.id_falha)}`)}
+              aria-label={`Ver detalhes do incidente: ${alert.falha_descricao}`}
             >
               <td className="alerts-table__td">
-                <RiskBadge risk={alert.risk} />
+                <RiskBadge risk={alert.falha_risco} />
               </td>
               <td className="alerts-table__td">
-                <span className="alerts-table__title">{alert.title}</span>
+                <span className="alerts-table__title">{alert.falha_descricao}</span>
                 <span className="alerts-table__type">
-                  {ALERT_TYPE_LABELS[alert.type] ?? alert.type}
+                  {FALHA_CATEGORIA_LABELS[alert.falha_categoria] ?? alert.falha_categoria}
                 </span>
               </td>
-              <td className="alerts-table__td">{alert.area}</td>
+              <td className="alerts-table__td">{alert.falha_localizacao ?? '—'}</td>
               <td className="alerts-table__td">
-                <EquipmentsList equipments={alert.equipments ?? []} />
+                <span>{alert.dispositivo_nome ?? '—'}</span>
+                {alert.dispositivo_tipo_conexao && (
+                  <span className="muted"> · {alert.dispositivo_tipo_conexao}</span>
+                )}
               </td>
               <td className="alerts-table__td">
-                <PredictionCell predictedFor={alert.predicted_for} />
+                <FalhaInicioCell falhaInicio={alert.falha_inicio} />
               </td>
               <td className="alerts-table__td">
-                <AccuracyBar accuracy={alert.accuracy} />
-              </td>
-              <td className="alerts-table__td">
-                <StatusBadge status={alert.status} />
+                <StatusBadge status={alert.incidente_status} />
               </td>
             </tr>
           ))}
@@ -163,30 +158,8 @@ export default function AlertsTable({ alerts, meta, isLoading, filters, onFilter
   );
 }
 
-/** Exibe os 2 primeiros equipamentos + "+N" se houver mais. */
-function EquipmentsList({ equipments }) {
-  if (!equipments || equipments.length === 0) return <span className="muted">—</span>;
-  const visible = equipments.slice(0, 2);
-  const rest = equipments.length - 2;
-  const title = equipments.join(', ');
-  return (
-    <span title={title}>
-      {visible.join(', ')}
-      {rest > 0 && <span className="muted"> +{rest}</span>}
-    </span>
-  );
-}
-
-/** Exibe o tempo relativo com data completa no title; destaque quando já passou. */
-function PredictionCell({ predictedFor }) {
-  if (!predictedFor) return <span className="muted">—</span>;
-  const past = isPast(predictedFor);
-  return (
-    <span
-      title={formatAbsolute(predictedFor)}
-      className={past ? 'prediction--past' : ''}
-    >
-      {formatRelative(predictedFor)}
-    </span>
-  );
+/** Exibe a data/hora de início da falha formatada. */
+function FalhaInicioCell({ falhaInicio }) {
+  if (!falhaInicio) return <span className="muted">—</span>;
+  return <span title={falhaInicio}>{falhaInicio}</span>;
 }

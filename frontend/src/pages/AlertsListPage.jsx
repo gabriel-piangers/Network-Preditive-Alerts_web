@@ -33,7 +33,7 @@ export default function AlertsListPage() {
   const alerts = alertsQuery.data?.data ?? null;
   const meta = alertsQuery.data?.meta ?? null;
   const summary = summaryQuery.data ?? null;
-  const areas = summary?.data?.areas ?? [];
+  const localizacoes = summary?.data?.localizacoes ?? [];
 
   // Horário da última atualização (quando há dados)
   const lastUpdated = alertsQuery.dataUpdatedAt
@@ -57,7 +57,7 @@ export default function AlertsListPage() {
       />
 
       {/* Barra de filtros */}
-      <FiltersBar filters={filters} areas={areas} onFilterChange={handleFilterChange} />
+      <FiltersBar filters={filters} localizacoes={localizacoes} onFilterChange={handleFilterChange} />
 
       {/* Linha de status: atualizado às + indicador de carregamento em segundo plano */}
       <div className="alerts-list-page__status-bar" aria-live="polite" aria-atomic="true">
@@ -94,17 +94,16 @@ export default function AlertsListPage() {
         <div className="alerts-list-page__empty" role="status">
           {customFiltersActive ? (
             <>
-              <p>Nenhum alerta encontrado com estes filtros.</p>
+              <p>Nenhum incidente encontrado com estes filtros.</p>
               <button
                 type="button"
                 className="retry-btn"
                 onClick={() =>
                   handleFilterChange({
-                    status: [...DEFAULT_FILTERS.status],
-                    risk: [],
-                    type: [],
-                    area: '',
-                    min_accuracy: DEFAULT_FILTERS.min_accuracy,
+                    incidente_status: [...DEFAULT_FILTERS.incidente_status],
+                    falha_risco: [],
+                    falha_categoria: [],
+                    falha_localizacao: '',
                     page: 1,
                   })
                 }
@@ -114,7 +113,7 @@ export default function AlertsListPage() {
             </>
           ) : (
             <p>
-              Nenhum alerta por enquanto. Quando o agente identificar um risco, ele aparecerá aqui.
+              Nenhum incidente por enquanto. Quando o agente receber um alerta, ele aparecerá aqui.
             </p>
           )}
         </div>

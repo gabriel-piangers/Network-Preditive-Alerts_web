@@ -1,22 +1,27 @@
-import { ChevronsUp, Minus, ChevronDown } from 'lucide-react';
-import { ALERT_RISK_LABELS } from '../../constants/alerts.js';
+import { ChevronsUp, ChevronUp, Minus, ChevronDown } from 'lucide-react';
+import { FALHA_RISCO_LABELS } from '../../constants/alerts.js';
 import './RiskBadge.css';
 
 /**
  * Badge de risco com ícone + texto.
  * Risco nunca é comunicado apenas por cor — há ícone distinto por nível.
- * Conforme seção 7.10 do SPEC (acessibilidade).
  *
- * @param {{ risk: 'high'|'medium'|'low' }} props
+ * @param {{ risk: 'Crítico'|'Alto'|'Médio'|'Baixo' }} props
  */
 export default function RiskBadge({ risk }) {
-  const label = ALERT_RISK_LABELS[risk] ?? risk;
+  const label = FALHA_RISCO_LABELS[risk] ?? risk;
 
   const Icon =
-    risk === 'high' ? ChevronsUp : risk === 'medium' ? Minus : ChevronDown;
+    risk === 'Crítico' ? ChevronsUp
+    : risk === 'Alto' ? ChevronUp
+    : risk === 'Médio' ? Minus
+    : ChevronDown;
+
+  // Converte "Crítico" → "critico", "Em Andamento" → "em-andamento" etc.
+  const cls = risk?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-') ?? '';
 
   return (
-    <span className={`risk-badge risk-badge--${risk}`} aria-label={`Risco ${label}`}>
+    <span className={`risk-badge risk-badge--${cls}`} aria-label={`Risco ${label}`}>
       <Icon size={14} aria-hidden="true" />
       {label}
     </span>

@@ -3,19 +3,16 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Archive } from 'lucide-react';
 import RiskBadge from '../components/alerts/RiskBadge.jsx';
 import StatusBadge from '../components/alerts/StatusBadge.jsx';
-import AccuracyBar from '../components/alerts/AccuracyBar.jsx';
 import ConfirmDialog from '../components/feedback/ConfirmDialog.jsx';
 import { SkeletonDetail } from '../components/feedback/Skeleton.jsx';
 import { useAlert } from '../hooks/useAlert.js';
 import { useUpdateAlert } from '../hooks/useUpdateAlert.js';
 import { useDeleteAlert } from '../hooks/useDeleteAlert.js';
-import { ALERT_STATUS_LABELS, ALERT_TYPE_LABELS } from '../constants/alerts.js';
-import { formatAbsolute, formatRelative, isPast } from '../utils/dates.js';
+import { INCIDENTE_STATUS_LABELS, FALHA_CATEGORIA_LABELS } from '../constants/alerts.js';
 import './AlertDetailPage.css';
 
 /**
- * Página de detalhe do alerta (/alerts/:id).
- * Conforme seção 7.7 do SPEC.
+ * Página de detalhe do incidente (/alerts/:id).
  */
 export default function AlertDetailPage() {
   const { id } = useParams();
@@ -28,10 +25,8 @@ export default function AlertDetailPage() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [archiveSuccess, setArchiveSuccess] = useState(false);
 
-  // Erros locais por seção
   const [statusError, setStatusError] = useState(null);
   const [actionsError, setActionsError] = useState(null);
-  const [confirmedError, setConfirmedError] = useState(null);
 
   const alert = alertQuery.data?.data ?? null;
 
@@ -41,7 +36,7 @@ export default function AlertDetailPage() {
     async (e) => {
       setStatusError(null);
       try {
-        await updateMutation.mutateAsync({ status: e.target.value });
+        await updateMutation.mutateAsync({ incidente_status: e.target.value });
       } catch (err) {
         setStatusError(err?.message ?? 'Erro ao alterar situação.');
       }
@@ -51,15 +46,15 @@ export default function AlertDetailPage() {
 
   const handleActionToggle = useCallback(
     async (index) => {
-      if (!alert?.actions) return;
+      if (!alert?.acoes) return;
       setActionsError(null);
 
-      const updatedActions = alert.actions.map((action, i) =>
-        i === index ? { ...action, done: !action.done } : action,
+      const updatedAcoes = alert.acoes.map((acao, i) =>
+        i === index ? { ...acao, done: !acao.done } : acao,
       );
 
       try {
-        await updateMutation.mutateAsync({ actions: updatedActions });
+        await updateMutation.mutateAsync({ acoes: updatedAcoes });
       } catch (err) {
         setActionsError(err?.message ?? 'Erro ao atualizar ação.');
       }
@@ -67,26 +62,11 @@ export default function AlertDetailPage() {
     [alert, updateMutation],
   );
 
-  const handleConfirmedChange = useCallback(
-    async (value) => {
-      setConfirmedError(null);
-      // value: 'true' | 'false' | 'null'
-      const parsed = value === 'true' ? true : value === 'false' ? false : null;
-      try {
-        await updateMutation.mutateAsync({ confirmed: parsed });
-      } catch (err) {
-        setConfirmedError(err?.message ?? 'Erro ao salvar feedback.');
-      }
-    },
-    [updateMutation],
-  );
-
   const handleArchive = useCallback(async () => {
     try {
       await deleteMutation.mutateAsync();
       setArchiveSuccess(true);
       setShowConfirmDialog(false);
-      // Pequena pausa para mostrar a confirmação antes de navegar
       setTimeout(() => navigate('/alerts'), 1200);
     } catch {
       setShowConfirmDialog(false);
@@ -110,9 +90,9 @@ export default function AlertDetailPage() {
         <div className="alert-detail-page__error" role="alert">
           {is404 ? (
             <>
-              <p className="alert-detail-page__error-title">Alerta não encontrado.</p>
+              <p className="alert-detail-page__error-title">Incidente não encontrado.</p>
               <p className="alert-detail-page__error-desc">
-                O alerta que você está procurando não existe ou foi removido.
+                O incidente que você está procurando não existe ou foi removido.
               </p>
             </>
           ) : (
@@ -120,7 +100,7 @@ export default function AlertDetailPage() {
               <p className="alert-detail-page__error-title">
                 {alertQuery.error?.message?.includes('conectar')
                   ? 'Não foi possível conectar ao servidor.'
-                  : 'Erro ao carregar o alerta.'}
+                  : 'Erro ao carregar o incidente.'}
               </p>
               <p className="alert-detail-page__error-desc">
                 {alertQuery.error?.message ?? 'Tente novamente.'}
@@ -146,13 +126,8 @@ export default function AlertDetailPage() {
 
   // ─── Dados derivados ──────────────────────────────────────────────────────
 
-  const doneCount = (alert.actions ?? []).filter((a) => a.done).length;
-  const totalCount = (alert.actions ?? []).length;
-
-  const confirmedValue =
-    alert.confirmed === true ? 'true' : alert.confirmed === false ? 'false' : 'null';
-
-  const predictedPast = isPast(alert.predicted_for);
+  const doneCount = (alert.acoes ?? []).filter((a) => a.done).length;
+  const totalCount = (alert.acoes ?? []).length;
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -161,7 +136,7 @@ export default function AlertDetailPage() {
       {/* Confirmação de arquivamento */}
       {archiveSuccess && (
         <div className="alert-detail-page__archive-toast" role="status" aria-live="polite">
-          Alerta arquivado com sucesso.
+          Incidente arquivado com sucesso.
         </div>
       )}
 
@@ -171,79 +146,115 @@ export default function AlertDetailPage() {
           type="button"
           className="alert-detail-page__back-btn"
           onClick={() => navigate(-1)}
-          aria-label="Voltar para alertas"
+          aria-label="Voltar para incidentes"
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          Voltar para alertas
+          Voltar para incidentes
         </button>
 
         <div className="alert-detail-page__title-row">
-          <h1 className="alert-detail-page__title">{alert.title}</h1>
+          <h1 className="alert-detail-page__title">
+            {alert.falha_descricao ?? alert.id_falha}
+          </h1>
           <div className="alert-detail-page__badges">
-            <RiskBadge risk={alert.risk} />
-            <StatusBadge status={alert.status} />
+            <RiskBadge risk={alert.falha_risco} />
+            <StatusBadge status={alert.incidente_status} />
           </div>
         </div>
       </header>
 
-      {/* 2. Grade de informações */}
-      <section className="alert-detail-page__info-grid" aria-label="Resumo do alerta">
+      {/* 2. Grade de informações do incidente */}
+      <section className="alert-detail-page__info-grid" aria-label="Resumo do incidente">
         <div className="info-grid__item">
-          <span className="info-grid__label">Tipo</span>
-          <span className="info-grid__value">{ALERT_TYPE_LABELS[alert.type] ?? alert.type}</span>
+          <span className="info-grid__label">ID do incidente</span>
+          <span className="info-grid__value">{alert.id_falha}</span>
         </div>
 
         <div className="info-grid__item">
-          <span className="info-grid__label">Área</span>
-          <span className="info-grid__value">{alert.area}</span>
-        </div>
-
-        <div className="info-grid__item">
-          <span className="info-grid__label">Equipamentos</span>
+          <span className="info-grid__label">Categoria</span>
           <span className="info-grid__value">
-            {alert.equipments?.length > 0 ? (
-              <ul className="info-grid__equipment-list">
-                {alert.equipments.map((eq) => (
-                  <li key={eq}>{eq}</li>
-                ))}
-              </ul>
-            ) : (
-              <span className="info-grid__empty">Nenhum equipamento</span>
+            {FALHA_CATEGORIA_LABELS[alert.falha_categoria] ?? alert.falha_categoria ?? '—'}
+          </span>
+        </div>
+
+        <div className="info-grid__item">
+          <span className="info-grid__label">Localização</span>
+          <span className="info-grid__value">{alert.falha_localizacao ?? '—'}</span>
+        </div>
+
+        <div className="info-grid__item">
+          <span className="info-grid__label">Cliente</span>
+          <span className="info-grid__value">
+            {alert.cliente_nome ?? alert.cliente_id}
+            {alert.cliente_banda && (
+              <span className="info-grid__sub"> · {alert.cliente_banda}</span>
             )}
           </span>
         </div>
 
         <div className="info-grid__item">
-          <span className="info-grid__label">Previsão de ocorrência</span>
-          <span
-            className={`info-grid__value ${predictedPast ? 'info-grid__value--past' : ''}`}
-            title={formatAbsolute(alert.predicted_for)}
-          >
-            {formatAbsolute(alert.predicted_for)}
-            <span className="info-grid__relative">({formatRelative(alert.predicted_for)})</span>
-          </span>
-        </div>
-
-        <div className="info-grid__item">
-          <span className="info-grid__label">Certeza</span>
+          <span className="info-grid__label">Dispositivo</span>
           <span className="info-grid__value">
-            <AccuracyBar accuracy={alert.accuracy} />
+            {alert.dispositivo_nome ?? alert.dispositivo_id ?? '—'}
+            {alert.dispositivo_tipo_conexao && (
+              <span className="info-grid__sub"> · {alert.dispositivo_tipo_conexao}</span>
+            )}
+          </span>
+        </div>
+
+        {alert.dispositivo_no_pai && (
+          <div className="info-grid__item">
+            <span className="info-grid__label">Nó pai</span>
+            <span className="info-grid__value">{alert.dispositivo_no_pai}</span>
+          </div>
+        )}
+
+        {alert.perda_pacotes_pct !== null && alert.perda_pacotes_pct !== undefined && (
+          <div className="info-grid__item">
+            <span className="info-grid__label">Perda de pacotes</span>
+            <span className="info-grid__value">{alert.perda_pacotes_pct}%</span>
+          </div>
+        )}
+
+        {alert.latencia_ms !== null && alert.latencia_ms !== undefined && (
+          <div className="info-grid__item">
+            <span className="info-grid__label">Latência</span>
+            <span className="info-grid__value">{alert.latencia_ms} ms</span>
+          </div>
+        )}
+
+        <div className="info-grid__item">
+          <span className="info-grid__label">Início da falha</span>
+          <span className="info-grid__value">{alert.falha_inicio ?? '—'}</span>
+        </div>
+
+        {alert.falha_resolucao && (
+          <div className="info-grid__item">
+            <span className="info-grid__label">Resolução</span>
+            <span className="info-grid__value">{alert.falha_resolucao}</span>
+          </div>
+        )}
+
+        <div className="info-grid__item">
+          <span className="info-grid__label">Ação automatizada</span>
+          <span className="info-grid__value">
+            {alert.acao_automatizada ? 'Sim' : 'Não'}
           </span>
         </div>
 
         <div className="info-grid__item">
-          <span className="info-grid__label">Criado em</span>
-          <span className="info-grid__value">{formatAbsolute(alert.created_at)}</span>
+          <span className="info-grid__label">Registrado em</span>
+          <span className="info-grid__value">{alert.created_at}</span>
         </div>
 
         <div className="info-grid__item">
           <span className="info-grid__label">Atualizado em</span>
-          <span className="info-grid__value">{formatAbsolute(alert.updated_at)}</span>
+          <span className="info-grid__value">{alert.updated_at}</span>
         </div>
       </section>
 
       {/* 3. Situação */}
-      <section className="alert-detail-page__section" aria-label="Situação do alerta">
+      <section className="alert-detail-page__section" aria-label="Situação do incidente">
         <h2 className="section__title">Situação</h2>
         <div className="section__status-row">
           <label htmlFor="alert-status" className="section__label">
@@ -252,12 +263,12 @@ export default function AlertDetailPage() {
           <select
             id="alert-status"
             className="section__select"
-            value={alert.status}
+            value={alert.incidente_status}
             onChange={handleStatusChange}
             disabled={updateMutation.isPending}
             aria-describedby={statusError ? 'status-error' : undefined}
           >
-            {Object.entries(ALERT_STATUS_LABELS).map(([value, label]) => (
+            {Object.entries(INCIDENTE_STATUS_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
@@ -275,22 +286,30 @@ export default function AlertDetailPage() {
       </section>
 
       {/* 4. Contexto */}
-      <section className="alert-detail-page__section" aria-label="Contexto do alerta">
+      <section className="alert-detail-page__section" aria-label="Contexto do incidente">
         <h2 className="section__title">Contexto</h2>
-        {alert.context ? (
-          <p className="section__context">{alert.context}</p>
+        {alert.contexto ? (
+          <p className="section__context">{alert.contexto}</p>
         ) : (
           <p className="section__empty">Sem contextualização disponível.</p>
         )}
       </section>
 
-      {/* 5. Causas prováveis */}
+      {/* 5. Solução aplicada (quando houver) */}
+      {alert.solucao_aplicada && (
+        <section className="alert-detail-page__section" aria-label="Solução aplicada">
+          <h2 className="section__title">Solução aplicada</h2>
+          <p className="section__context">{alert.solucao_aplicada}</p>
+        </section>
+      )}
+
+      {/* 6. Causas prováveis */}
       <section className="alert-detail-page__section" aria-label="Causas prováveis">
         <h2 className="section__title">Causas prováveis</h2>
-        {alert.causes?.length > 0 ? (
+        {alert.causas?.length > 0 ? (
           <ul className="section__causes-list">
-            {alert.causes.map((cause, i) => (
-              <li key={i}>{cause}</li>
+            {alert.causas.map((causa, i) => (
+              <li key={i}>{causa}</li>
             ))}
           </ul>
         ) : (
@@ -298,7 +317,7 @@ export default function AlertDetailPage() {
         )}
       </section>
 
-      {/* 6. Ações recomendadas (checklist) */}
+      {/* 7. Ações recomendadas (checklist) */}
       <section className="alert-detail-page__section" aria-label="Ações recomendadas">
         <h2 className="section__title">
           Ações recomendadas
@@ -317,19 +336,19 @@ export default function AlertDetailPage() {
 
         {totalCount > 0 ? (
           <ul className="section__checklist" role="list">
-            {alert.actions.map((action, index) => (
-              <li key={index} className={`checklist__item ${action.done ? 'checklist__item--done' : ''}`}>
+            {alert.acoes.map((acao, index) => (
+              <li key={index} className={`checklist__item ${acao.done ? 'checklist__item--done' : ''}`}>
                 <label className="checklist__label">
                   <input
                     type="checkbox"
                     className="checklist__checkbox"
-                    checked={action.done}
+                    checked={acao.done}
                     onChange={() => handleActionToggle(index)}
                     disabled={updateMutation.isPending}
-                    aria-label={action.text}
+                    aria-label={acao.text}
                   />
-                  <span className={`checklist__text ${action.done ? 'checklist__text--done' : ''}`}>
-                    {action.text}
+                  <span className={`checklist__text ${acao.done ? 'checklist__text--done' : ''}`}>
+                    {acao.text}
                   </span>
                 </label>
               </li>
@@ -340,51 +359,13 @@ export default function AlertDetailPage() {
         )}
       </section>
 
-      {/* 7. Feedback da previsão */}
-      <section className="alert-detail-page__section" aria-label="Feedback da previsão">
-        <h2 className="section__title">Feedback da previsão</h2>
-        <p className="section__help-text">
-          Essa informação ajuda a medir a precisão do modelo.
-        </p>
-
-        <div className="section__confirmed-row" role="group" aria-label="A previsão se confirmou?">
-          <span className="section__label">A previsão se confirmou?</span>
-          <div className="section__confirmed-options">
-            {[
-              { value: 'true', label: 'Sim' },
-              { value: 'false', label: 'Não' },
-              { value: 'null', label: 'Ainda não avaliado' },
-            ].map(({ value, label }) => (
-              <label key={value} className="confirmed-option">
-                <input
-                  type="radio"
-                  name="alert-confirmed"
-                  className="confirmed-option__input"
-                  value={value}
-                  checked={confirmedValue === value}
-                  onChange={() => handleConfirmedChange(value)}
-                  disabled={updateMutation.isPending}
-                />
-                <span className="confirmed-option__label">{label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {confirmedError && (
-          <p className="section__error" role="alert">
-            {confirmedError}
-          </p>
-        )}
-      </section>
-
-      {/* 8. Arquivar alerta */}
-      <section className="alert-detail-page__section alert-detail-page__section--archive" aria-label="Arquivar alerta">
+      {/* 8. Arquivar incidente */}
+      <section className="alert-detail-page__section alert-detail-page__section--archive" aria-label="Arquivar incidente">
         <div className="archive__row">
           <div className="archive__info">
-            <h2 className="section__title">Arquivar alerta</h2>
+            <h2 className="section__title">Arquivar incidente</h2>
             <p className="section__help-text">
-              O alerta sairá da lista, mas será mantido no sistema.
+              O incidente sairá da lista, mas será mantido no sistema.
             </p>
           </div>
           <button
@@ -392,7 +373,7 @@ export default function AlertDetailPage() {
             className="btn btn--secondary archive__btn"
             onClick={() => setShowConfirmDialog(true)}
             disabled={deleteMutation.isPending || archiveSuccess}
-            aria-label="Arquivar alerta"
+            aria-label="Arquivar incidente"
           >
             <Archive size={15} aria-hidden="true" />
             Arquivar
@@ -400,7 +381,7 @@ export default function AlertDetailPage() {
         </div>
         {deleteMutation.isError && (
           <p className="section__error" role="alert">
-            {deleteMutation.error?.message ?? 'Erro ao arquivar o alerta.'}
+            {deleteMutation.error?.message ?? 'Erro ao arquivar o incidente.'}
           </p>
         )}
       </section>
@@ -408,8 +389,8 @@ export default function AlertDetailPage() {
       {/* Dialog de confirmação */}
       <ConfirmDialog
         open={showConfirmDialog}
-        title="Arquivar alerta"
-        message="O alerta sairá da lista, mas será mantido no sistema."
+        title="Arquivar incidente"
+        message="O incidente sairá da lista, mas será mantido no sistema."
         confirmLabel="Arquivar"
         cancelLabel="Cancelar"
         isLoading={deleteMutation.isPending}
